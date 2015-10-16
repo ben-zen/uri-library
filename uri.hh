@@ -166,7 +166,7 @@ private:
     size_t scheme_end = uri_text.find_first_of(':');
     if ((scheme_end == std::string::npos) || (scheme_end == uri_length))
     {
-      throw std::invalid_argument("Could not find the scheme of the supplied URI. Supplied Uri was: " + uri_text);
+      throw std::invalid_argument("Could not find the scheme of the supplied URI. Supplied URI was: " + uri_text);
     }
 
     m_scheme = uri_text.substr(carat, (scheme_end - carat));
