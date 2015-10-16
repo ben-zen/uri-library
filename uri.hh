@@ -1,4 +1,5 @@
 // Copyright (C) 2015 Ben Lewis <benjf5+github@gmail.com>
+// Licensed under the MIT license.
 
 #pragma once
 #include <map>
