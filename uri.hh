@@ -1,6 +1,7 @@
 // Copyright (C) 2015 Ben Lewis <benjf5+github@gmail.com>
 
 #pragma once
+#include <map>
 #include <string>
 #include <stdexcept>
 
@@ -10,7 +11,148 @@ class uri
   // scheme:[//[user:password@]domain[:port]][/]path[?query][#fragment] (from Wikipedia)
 
 public:
-  uri(std::string&& uri_text)
+
+  uri(char const *uri_text) :
+    m_port(0), 
+    m_query_dict_initialized(false)
+  {
+    setup(std::string(uri_text));
+  }
+
+  uri(std::string const &uri_text) : 
+    m_port(0), 
+    m_query_dict_initialized(false)
+  {
+    setup(uri_text);
+  }
+
+  ~uri() { };
+
+  std::string const &get_scheme() const
+  {
+    return m_scheme;
+  }
+
+  std::string const &get_username() const
+  {
+    return m_username;
+  }
+
+  std::string const &get_password() const
+  {
+    return m_password;
+  }
+  
+  std::string const &get_domain() const
+  {
+    return m_domain;
+  }
+
+  unsigned long get_port() const
+  {
+    return m_port;
+  }
+  
+  std::string const &get_path() const
+  {
+    return m_path;
+  }
+
+  std::string const &get_query() const
+  {
+    return m_query;
+  }
+
+  std::map<std::string, std::string> const &get_query_dictionary()
+  {
+    if (!m_query_dict_initialized)
+    {
+      if (!m_query.empty())
+      {
+        // Loop over the query string looking for '&'s, then check each one for
+        // an '=' to find keys and values; if there's not an '=' then the key
+        // will have an empty value in the map.
+        size_t carat = 0;
+        size_t stanza_end = m_query.find_first_of('&');
+        do
+        {
+          std::string stanza = m_query.substr(carat, ((stanza_end != std::string::npos) ? (stanza_end - carat) : std::string::npos));
+          size_t key_value_divider = stanza.find_first_of('=');
+          std::string key = stanza.substr(0, key_value_divider);
+          std::string value;
+          if (key_value_divider != std::string::npos)
+          {
+            value = stanza.substr((key_value_divider + 1));
+          }
+
+          if (m_query_dict.count(key) != 0)
+          {
+            throw std::invalid_argument("Bad key in the query string!");
+          }
+
+          m_query_dict.emplace(key, value);
+          carat = ((stanza_end != std::string::npos) ? (stanza_end + 1)
+                   : std::string::npos);
+          stanza_end = m_query.find_first_of('&', carat);
+        }
+        while ((stanza_end != std::string::npos) 
+               || (carat != std::string::npos));
+      }
+    }
+    m_query_dict_initialized = true;
+    return m_query_dict;
+  }
+
+  std::string const &get_fragment() const
+  {
+    return m_fragment;
+  }
+
+  std::string to_string() const
+  {
+    std::string full_uri;
+    full_uri.append(m_scheme);
+    full_uri.append(":");
+    if (!m_domain.empty())
+    {
+      full_uri.append("//");
+      if (!(m_username.empty() || m_password.empty()))
+      {
+        full_uri.append(m_username);
+        full_uri.append(":");
+        full_uri.append(m_password);
+        full_uri.append("@");
+      }
+
+      full_uri.append(m_domain);
+
+      if (m_port != 0)
+      {
+        full_uri.append(":");
+        full_uri.append(std::to_string(m_port));
+      }
+    }
+    full_uri.append("/");
+    full_uri.append(m_path);
+
+    if (!m_query.empty())
+    {
+      full_uri.append("?");
+      full_uri.append(m_query);
+    }
+
+    if (!m_fragment.empty())
+    {
+      full_uri.append("#");
+      full_uri.append(m_fragment);
+    }
+
+    return full_uri;
+  }
+  
+private:
+
+  void setup(std::string const &uri_text)
   {
     size_t carat = 0;
     size_t const uri_length = uri_text.length();
@@ -26,7 +168,7 @@ public:
       throw std::invalid_argument("Could not find the scheme of the supplied URI. Supplied Uri was: " + uri_text);
     }
 
-    scheme = uri_text.substr(carat, (scheme_end - carat));
+    m_scheme = uri_text.substr(carat, (scheme_end - carat));
     carat = scheme_end; // scheme_end is currently ':'
     if ((carat + 2) < uri_length)
     {
@@ -43,9 +185,9 @@ public:
 	    throw std::invalid_argument("Could not parse the username/password section of the supplied URI. Supplied URI was: " + uri_text);
 	  }
 
-	  username = uri_text.substr(carat, (user_pass_divider - carat));
+	  m_username = uri_text.substr(carat, (user_pass_divider - carat));
 	  carat = user_pass_divider + 1;
-	  password = uri_text.substr(carat, (user_pass_end - carat));
+	  m_password = uri_text.substr(carat, (user_pass_end - carat));
 	  carat = user_pass_end + 1;
 	}
 
@@ -64,44 +206,50 @@ public:
 	{
 	  size_t local_carat = port_indicator + 1;
 	  std::string port_text = uri_text.substr(local_carat, (authority_path_divider - local_carat));
-	  port = std::stoul(port_text);
+	  m_port = std::stoul(port_text);
 	  end_of_domain = port_indicator;
 	}
 
-	domain = uri_text.substr(carat, (end_of_domain - carat));
+	m_domain = uri_text.substr(carat, (end_of_domain - carat));
 	carat = authority_path_divider + 1; // Now it sits at the start of the path.
       }
 
+      size_t end_of_query = std::string::npos;
       size_t start_of_fragment = uri_text.find_first_of('#', carat);
       if (start_of_fragment != std::string::npos)
       {
 	// In this case the fragment is present, and we might as well extract it now.
-	fragment = uri_text.substr(start_of_fragment + 1);
+	m_fragment = uri_text.substr(start_of_fragment + 1);
+        end_of_query = start_of_fragment;
       }
 
+      size_t end_of_path = std::string::npos;
       size_t start_of_query = uri_text.find_first_of('?', carat);
       if (start_of_query != std::string::npos)
       {
-	// Now we have the start of the query, and we also know if there's a fragment, and where it starts.
-	query = uri_text.substr((start_of_query + 1), ((start_of_fragment != std::string::npos) ? (start_of_fragment - 1) : std::string::npos));
+	// Now we have the start of the query, and we also know if there's a
+	// fragment, and where it starts.
+        end_of_path = start_of_query;
+        start_of_query++;
+	m_query = uri_text.substr(start_of_query, (end_of_query - start_of_query));
       }
 
-      // Now that we have the fragment and query out of the way, what remains is the path.
-      path = uri_text.substr(carat, ((start_of_query != std::string::npos) ? (start_of_query - 1) : std::string::npos));
+      // Now that we have the fragment and query out of the way, what remains is
+      // the path.
+      m_path = uri_text.substr(carat, (end_of_path - carat));
     }
-	
   };
-  ~uri() { };
 
-  // private:
-  std::string scheme;
-  std::string authority_component;
-  std::string username;
-  std::string password;
-  std::string domain;
-  std::string path;
-  std::string query;
-  std::string fragment;
+  std::string m_scheme;
+  std::string m_username;
+  std::string m_password;
+  std::string m_domain;
+  std::string m_path;
+  std::string m_query;
+  std::string m_fragment;
 
-  unsigned long port;
+  std::map<std::string, std::string> m_query_dict;
+  bool m_query_dict_initialized;
+  
+  unsigned long m_port;
 };
