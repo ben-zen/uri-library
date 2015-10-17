@@ -96,10 +96,10 @@ int main()
   uri no_path_no_separator("https://www.example.com");
   std::cout << no_path_no_separator.to_string() << std::endl;
 
-  // This next piece is from Wikipedia, as an example URN.
   std::cout << std::endl << "Checking some basic URN handling:" << std::endl;
-  uri simple_urn("urn:example:mammal:monotreme:echidna");
+  uri simple_urn("urn:ietf:rtc:2141", uri::scheme_category::Hierarchical);
   std::cout << simple_urn.to_string() << std::endl << std::endl;
+  std::cout << simple_urn.get_path() << std::endl << std::endl;
 
   // Check for a broken username/password pair
   try

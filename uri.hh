@@ -8,8 +8,21 @@
 
 class uri
 {
-
-  // scheme:[//[user:password@]domain[:port]][/]path[?query][#fragment] (from Wikipedia)
+  /* URIs are broadly divided into two categories: hierarchical and
+   * non-hierarchical. Both hierarchical URIs and non-hierarchical URIs have a
+   * few elements in common; all URIs have a scheme of one or more alphanumeric
+   * characters followed by a colon, and they all may optionally have a query
+   * component preceded by a question mark, and a fragment component preceded by
+   * an octothorpe (hash mark: '#'). The query consists of stanzas separated by
+   * ampersands ('&'), and each stanza consists of a key and an optional value;
+   * if the value exists, the key and value must be divided by an equals
+   * sign. CGI applications are encouraged to also support semicolons as
+   * dividers in their query strings, this library currently does not support
+   * the use of semicolons.
+   *
+   * The following is an example from Wikipedia of a hierarchical URI:
+   * scheme:[//[user:password@]domain[:port]][/]path[?query][#fragment]
+   */
 
 public:
 
@@ -47,28 +60,57 @@ public:
     return m_category;
   };
 
+  std::string const &get_content() const
+  {
+    if (m_category != scheme_category::NonHierarchical)
+    {
+      throw std::domain_error("The content component is only valid for non-hierarchical URIs.");
+    }
+    return m_content;
+  };
+
   std::string const &get_username() const
   {
+    if (m_category != scheme_category::Hierarchical)
+    {
+      throw std::domain_error("The username component is only valid for hierarchical URIs.");
+    }
     return m_username;
   };
 
   std::string const &get_password() const
   {
+    if (m_category != scheme_category::Hierarchical)
+    {
+      throw std::domain_error("The password component is only valid for hierarchical URIs.");
+    }
     return m_password;
   };
   
   std::string const &get_host() const
   {
+    if (m_category != scheme_category::Hierarchical)
+    {
+      throw std::domain_error("The host component is only valid for hierarchical URIs.");
+    }
     return m_host;
   };
 
   unsigned long get_port() const
   {
+    if (m_category != scheme_category::Hierarchical)
+    {
+      throw std::domain_error("The port component is only valid for hierarchical URIs.");
+    }
     return m_port;
   };
 
   std::string const &get_path() const
   {
+    if (m_category != scheme_category::Hierarchical)
+    {
+      throw std::domain_error("The path component is only valid for hierarchical URIs.");
+    }
     return m_path;
   };
 
@@ -93,7 +135,7 @@ public:
     full_uri.append(m_scheme);
     full_uri.append(":");
 
-    if (m_authority.length() > m_path.length())
+    if (m_content.length() > m_path.length())
     {
       full_uri.append("//");
       if (!(m_username.empty() || m_password.empty()))
@@ -132,7 +174,7 @@ public:
     }
 
     return full_uri;
-  }
+  };
   
 private:
 
@@ -157,7 +199,6 @@ private:
 
     size_t query_token_location = uri_text.find_first_of('?');
     size_t fragment_token_location = uri_text.find_first_of('#');
-    size_t authority_section_end = std::min(query_token_location, fragment_token_location);
 
     if (fragment_token_location != std::string::npos)
     {
@@ -181,48 +222,50 @@ private:
 
     init_query_dictionary(); // If the query string is empty, this will be empty too.
 
-    m_authority = uri_text.substr((scheme_end + 1),
-				  ((authority_section_end != std::string::npos)
-				   ? (authority_section_end - 1 - scheme_end)
-				   : std::string::npos));
+    size_t content_end = std::min(query_token_location, 
+                                  fragment_token_location);
+    m_content = uri_text.substr((scheme_end + 1),
+                                ((content_end != std::string::npos)
+                                 ? (content_end - 1 - scheme_end)
+                                 : std::string::npos));
 
     // The parsing of the authority component differs between hierarchical and non-hierarchical URIs.
     switch (category)
     {
     case scheme_category::Hierarchical:
-      if (m_authority.length() > 0)
+      if (m_content.length() > 0)
       {
 	size_t path_start = std::string::npos;
-	if (!m_authority.compare(0, 2, "//"))
+	if (!m_content.compare(0, 2, "//"))
 	{
 	  // In this case, we have a host and possibly additional data; parse it in chunks.
 	  size_t host_start = 2;
-	  size_t user_pass_end = m_authority.find_first_of('@');
+	  size_t user_pass_end = m_content.find_first_of('@');
 	  if (user_pass_end != std::string::npos)
 	  {
-	    size_t user_pass_divider = m_authority.find_first_of(':');
+	    size_t user_pass_divider = m_content.find_first_of(':');
 	    if (user_pass_divider > user_pass_end)
 	    {
 	      throw std::invalid_argument("Could not parse the username/password section of the supplied URI. Supplied URI was missing a partition between username and password components.");
 	    }
 
-	    m_username = m_authority.substr(0, user_pass_divider);
-	    m_password = m_authority.substr((user_pass_divider + 1), (user_pass_end - user_pass_divider - 1));
+	    m_username = m_content.substr(0, user_pass_divider);
+	    m_password = m_content.substr((user_pass_divider + 1), (user_pass_end - user_pass_divider - 1));
 	    host_start = user_pass_end + 1;
 	  }
 
-	  path_start = m_authority.find_first_of('/', host_start);
-	  size_t port_indicator = m_authority.find_first_of(':', host_start);
+	  path_start = m_content.find_first_of('/', host_start);
+	  size_t port_indicator = m_content.find_first_of(':', host_start);
 	  if (port_indicator != std::string::npos)
 	  {
-	    m_port = std::stoul(m_authority.substr((port_indicator + 1),
-						   ((path_start != std::string::npos)
-						    ? (path_start - port_indicator - 1)
-						    : std::string::npos)));
+	    m_port = std::stoul(m_content.substr((port_indicator + 1),
+                                                 ((path_start != std::string::npos)
+                                                  ? (path_start - port_indicator - 1)
+                                                  : std::string::npos)));
 	  }
 
 	  size_t host_end = std::min(path_start, port_indicator);
-	  m_host = m_authority.substr(host_start, (host_end - host_start));
+	  m_host = m_content.substr(host_start, (host_end - host_start));
 	  if (path_start != std::string::npos)
 	  {
 	    path_start++;
@@ -231,7 +274,7 @@ private:
 	}
 	else
 	{
-	  if (!(m_authority.compare(0, 1, "/")))
+	  if (!(m_content.compare(0, 1, "/")))
 	  {
 	    path_start = 1;
 	    m_path_is_rooted = true;
@@ -241,11 +284,14 @@ private:
 	    path_start = 0;
 	  }
 	}
-	m_path = (path_start < m_authority.length()) ? m_authority.substr(path_start) : "";
+	m_path = (path_start < m_content.length()) ? m_content.substr(path_start) : "";
       }
       break;
     case scheme_category::NonHierarchical:
-      throw std::invalid_argument("Non-hierarchical URIs are currently not supported by this library. The supplied URI was: " + uri_text);
+      // Included for completeness; the content component of non-hierarchical
+      // URIs is not parsed by this class; in the future specializations of this
+      // class might support specific cases, but that will be on a case-by-case
+      // basis.
       break;
     }
   };
@@ -286,7 +332,7 @@ private:
   }
 
   std::string m_scheme;
-  std::string m_authority;
+  std::string m_content;
   std::string m_username;
   std::string m_password;
   std::string m_host;
