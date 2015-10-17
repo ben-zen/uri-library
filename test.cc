@@ -41,6 +41,11 @@ int main()
   uri no_path_no_separator("https://www.example.com");
   std::cout << no_path_no_separator.to_string() << std::endl;
 
+  // This next piece is from Wikipedia, as an example URN.
+  std::cout << std::endl << "Checking some basic URN handling:" << std::endl;
+  uri simple_urn("urn:example:mammal:monotreme:echidna");
+  std::cout << simple_urn.to_string() << std::endl << std::endl;
+
   // Check for a broken scheme;
   try
   {

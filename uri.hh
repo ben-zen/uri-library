@@ -20,15 +20,17 @@ public:
   };
 
   uri(char const *uri_text, scheme_category category = scheme_category::Hierarchical) :
-    m_port(0),
-    m_category(category)
+    m_category(category),
+    m_path_is_rooted(false),
+    m_port(0)
   {
     setup(std::string(uri_text), category);
   };
 
   uri(std::string const &uri_text, scheme_category category = scheme_category::Hierarchical) : 
-    m_port(0),
-    m_category(category)
+    m_category(category),
+    m_path_is_rooted(false),
+    m_port(0)
   {
     setup(uri_text, category);
   };
@@ -91,7 +93,7 @@ public:
     full_uri.append(m_scheme);
     full_uri.append(":");
 
-    if (!m_authority.empty())
+    if (m_authority.length() > m_path.length())
     {
       full_uri.append("//");
       if (!(m_username.empty() || m_password.empty()))
@@ -111,7 +113,10 @@ public:
       }
     }
 
-    full_uri.append("/");
+    if (m_path_is_rooted)
+    {
+      full_uri.append("/");
+    }
     full_uri.append(m_path);
 
     if (!m_query.empty())
@@ -222,10 +227,19 @@ private:
 	  {
 	    path_start++;
 	  }
+	  m_path_is_rooted = true;
 	}
 	else
 	{
-	  path_start = (!m_authority.compare(0, 1, "/")) ? 1 : 0;
+	  if (!(m_authority.compare(0, 1, "/")))
+	  {
+	    path_start = 1;
+	    m_path_is_rooted = true;
+	  }
+	  else
+	  {
+	    path_start = 0;
+	  }
 	}
 	m_path = (path_start < m_authority.length()) ? m_authority.substr(path_start) : "";
       }
@@ -284,4 +298,5 @@ private:
 
   scheme_category m_category;
   unsigned long m_port;
+  bool m_path_is_rooted;
 };
