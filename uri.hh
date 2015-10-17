@@ -13,108 +13,85 @@ class uri
 
 public:
 
-  uri(char const *uri_text) :
-    m_port(0), 
-    m_query_dict_initialized(false)
+  enum class scheme_category
   {
-    setup(std::string(uri_text));
-  }
+    Hierarchical,
+    NonHierarchical
+  };
 
-  uri(std::string const &uri_text) : 
-    m_port(0), 
-    m_query_dict_initialized(false)
+  uri(char const *uri_text, scheme_category category = scheme_category::Hierarchical) :
+    m_port(0),
+    m_category(category)
   {
-    setup(uri_text);
-  }
+    setup(std::string(uri_text), category);
+  };
+
+  uri(std::string const &uri_text, scheme_category category = scheme_category::Hierarchical) : 
+    m_port(0),
+    m_category(category)
+  {
+    setup(uri_text, category);
+  };
 
   ~uri() { };
 
   std::string const &get_scheme() const
   {
     return m_scheme;
-  }
+  };
+
+  scheme_category get_scheme_category() const
+  {
+    return m_category;
+  };
 
   std::string const &get_username() const
   {
     return m_username;
-  }
+  };
 
   std::string const &get_password() const
   {
     return m_password;
-  }
+  };
   
-  std::string const &get_domain() const
+  std::string const &get_host() const
   {
-    return m_domain;
-  }
+    return m_host;
+  };
 
   unsigned long get_port() const
   {
     return m_port;
-  }
-  
+  };
+
   std::string const &get_path() const
   {
     return m_path;
-  }
+  };
 
   std::string const &get_query() const
   {
     return m_query;
-  }
+  };
 
-  std::map<std::string, std::string> const &get_query_dictionary()
+  std::map<std::string, std::string> const &get_query_dictionary() const
   {
-    if (!m_query_dict_initialized)
-    {
-      if (!m_query.empty())
-      {
-        // Loop over the query string looking for '&'s, then check each one for
-        // an '=' to find keys and values; if there's not an '=' then the key
-        // will have an empty value in the map.
-        size_t carat = 0;
-        size_t stanza_end = m_query.find_first_of('&');
-        do
-        {
-          std::string stanza = m_query.substr(carat, ((stanza_end != std::string::npos) ? (stanza_end - carat) : std::string::npos));
-          size_t key_value_divider = stanza.find_first_of('=');
-          std::string key = stanza.substr(0, key_value_divider);
-          std::string value;
-          if (key_value_divider != std::string::npos)
-          {
-            value = stanza.substr((key_value_divider + 1));
-          }
-
-          if (m_query_dict.count(key) != 0)
-          {
-            throw std::invalid_argument("Bad key in the query string!");
-          }
-
-          m_query_dict.emplace(key, value);
-          carat = ((stanza_end != std::string::npos) ? (stanza_end + 1)
-                   : std::string::npos);
-          stanza_end = m_query.find_first_of('&', carat);
-        }
-        while ((stanza_end != std::string::npos) 
-               || (carat != std::string::npos));
-      }
-    }
-    m_query_dict_initialized = true;
     return m_query_dict;
-  }
+  };
 
   std::string const &get_fragment() const
   {
     return m_fragment;
-  }
+  };
 
   std::string to_string() const
   {
     std::string full_uri;
     full_uri.append(m_scheme);
     full_uri.append(":");
-    if (!m_domain.empty())
+
+    if (!m_authority.empty())
     {
       full_uri.append("//");
       if (!(m_username.empty() || m_password.empty()))
@@ -125,7 +102,7 @@ public:
         full_uri.append("@");
       }
 
-      full_uri.append(m_domain);
+      full_uri.append(m_host);
 
       if (m_port != 0)
       {
@@ -133,6 +110,7 @@ public:
         full_uri.append(std::to_string(m_port));
       }
     }
+
     full_uri.append("/");
     full_uri.append(m_path);
 
@@ -153,7 +131,7 @@ public:
   
 private:
 
-  void setup(std::string const &uri_text)
+  void setup(std::string const &uri_text, scheme_category category)
   {
     size_t carat = 0;
     size_t const uri_length = uri_text.length();
@@ -162,7 +140,7 @@ private:
     {
       throw std::invalid_argument("URIs cannot be of zero length.");
     }
-    
+
     size_t scheme_end = uri_text.find_first_of(':');
     if ((scheme_end == std::string::npos) || (scheme_end == uri_length))
     {
@@ -170,87 +148,137 @@ private:
     }
 
     m_scheme = uri_text.substr(carat, (scheme_end - carat));
-    carat = scheme_end; // scheme_end is currently ':'
-    if ((carat + 2) < uri_length)
+    carat = scheme_end; // scheme_end is currently at the first ':'
+
+    size_t query_token_location = uri_text.find_first_of('?');
+    size_t fragment_token_location = uri_text.find_first_of('#');
+    size_t authority_section_end = std::min(query_token_location, fragment_token_location);
+
+    if (fragment_token_location != std::string::npos)
     {
-      if ((uri_text[++carat] == '/') // If yes, then check the next one, if no, we're already in the path.
-	  && (uri_text[++carat] == '/')) // Again, if yes, then we're in the username/password/domain block, if no, then path.
+      // It's the last component of the URI, so I'm willing to be lazy
+      // and use std::string::npos for the length.
+      m_fragment = uri_text.substr(fragment_token_location + 1, std::string::npos);
+    }
+
+    if (query_token_location != std::string::npos)
+    {
+      if ((fragment_token_location != std::string::npos) && (fragment_token_location < query_token_location))
       {
-	carat++;
-	size_t user_pass_end = uri_text.find_first_of('@', carat);
-	if (user_pass_end != std::string::npos) // Now we parse the username/password block
+	throw std::invalid_argument("The order of the fragment and the query is inverted in the supplied URI.");
+      }
+
+      m_query = uri_text.substr((query_token_location + 1),
+				((fragment_token_location != std::string::npos)
+				 ? (fragment_token_location - 1 - query_token_location)
+				 : std::string::npos));
+    }
+
+    init_query_dictionary(); // If the query string is empty, this will be empty too.
+
+    m_authority = uri_text.substr((scheme_end + 1),
+				  ((authority_section_end != std::string::npos)
+				   ? (authority_section_end - 1 - scheme_end)
+				   : std::string::npos));
+
+    // The parsing of the authority component differs between hierarchical and non-hierarchical URIs.
+    switch (category)
+    {
+    case scheme_category::Hierarchical:
+      if (m_authority.length() > 0)
+      {
+	size_t path_start = std::string::npos;
+	if (!m_authority.compare(0, 2, "//"))
 	{
-	  size_t user_pass_divider = uri_text.find_first_of(':', carat);
-	  if ((user_pass_divider == std::string::npos) || (user_pass_divider > user_pass_end))
+	  // In this case, we have a host and possibly additional data; parse it in chunks.
+	  size_t host_start = 2;
+	  size_t user_pass_end = m_authority.find_first_of('@');
+	  if (user_pass_end != std::string::npos)
 	  {
-	    throw std::invalid_argument("Could not parse the username/password section of the supplied URI. Supplied URI was: " + uri_text);
+	    size_t user_pass_divider = m_authority.find_first_of(':');
+	    if (user_pass_divider > user_pass_end)
+	    {
+	      throw std::invalid_argument("Could not parse the username/password section of the supplied URI. Supplied URI was missing a partition between username and password components.");
+	    }
+
+	    m_username = m_authority.substr(0, user_pass_divider);
+	    m_password = m_authority.substr((user_pass_divider + 1), (user_pass_end - user_pass_divider - 1));
+	    host_start = user_pass_end + 1;
 	  }
 
-	  m_username = uri_text.substr(carat, (user_pass_divider - carat));
-	  carat = user_pass_divider + 1;
-	  m_password = uri_text.substr(carat, (user_pass_end - carat));
-	  carat = user_pass_end + 1;
-	}
+	  path_start = m_authority.find_first_of('/', host_start);
+	  size_t port_indicator = m_authority.find_first_of(':', host_start);
+	  if (port_indicator != std::string::npos)
+	  {
+	    m_port = std::stoul(m_authority.substr((port_indicator + 1),
+						   ((path_start != std::string::npos)
+						    ? (path_start - port_indicator - 1)
+						    : std::string::npos)));
+	  }
 
-	size_t authority_path_divider = uri_text.find_first_of('/', carat);       
-	if (authority_path_divider == std::string::npos)
+	  size_t host_end = std::min(path_start, port_indicator);
+	  m_host = m_authority.substr(host_start, (host_end - host_start));
+	  path_start++;
+	}
+	else
 	{
-	  throw std::invalid_argument("URI has domain section but no path. Supplied URI was: " + uri_text);
+	  path_start = (!m_authority.compare(0, 1, "/")) ? 1 : 0;
 	}
-
-	size_t end_of_domain = authority_path_divider;
-
-	// Here we can parse the domain, such as it requires parsing. Check first for the presence of a port:
-	size_t port_indicator = uri_text.find_first_of(':', carat);
-
-	if (port_indicator != std::string::npos)
-	{
-	  size_t local_carat = port_indicator + 1;
-	  std::string port_text = uri_text.substr(local_carat, (authority_path_divider - local_carat));
-	  m_port = std::stoul(port_text);
-	  end_of_domain = port_indicator;
-	}
-
-	m_domain = uri_text.substr(carat, (end_of_domain - carat));
-	carat = authority_path_divider + 1; // Now it sits at the start of the path.
+	m_path = m_authority.substr(path_start);
       }
-
-      size_t end_of_query = std::string::npos;
-      size_t start_of_fragment = uri_text.find_first_of('#', carat);
-      if (start_of_fragment != std::string::npos)
-      {
-	// In this case the fragment is present, and we might as well extract it now.
-	m_fragment = uri_text.substr(start_of_fragment + 1);
-        end_of_query = start_of_fragment;
-      }
-
-      size_t end_of_path = std::string::npos;
-      size_t start_of_query = uri_text.find_first_of('?', carat);
-      if (start_of_query != std::string::npos)
-      {
-	// Now we have the start of the query, and we also know if there's a
-	// fragment, and where it starts.
-        end_of_path = start_of_query;
-        start_of_query++;
-	m_query = uri_text.substr(start_of_query, (end_of_query - start_of_query));
-      }
-
-      // Now that we have the fragment and query out of the way, what remains is
-      // the path.
-      m_path = uri_text.substr(carat, (end_of_path - carat));
+      break;
+    case scheme_category::NonHierarchical:
+      throw std::invalid_argument("Non-hierarchical URIs are currently not supported by this library. The supplied URI was: " + uri_text);
+      break;
     }
   };
 
+  void init_query_dictionary()
+  {
+    if (!m_query.empty())
+    {
+      // Loop over the query string looking for '&'s, then check each one for
+      // an '=' to find keys and values; if there's not an '=' then the key
+      // will have an empty value in the map.
+      size_t carat = 0;
+      size_t stanza_end = m_query.find_first_of('&');
+      do
+      {
+	std::string stanza = m_query.substr(carat, ((stanza_end != std::string::npos) ? (stanza_end - carat) : std::string::npos));
+	size_t key_value_divider = stanza.find_first_of('=');
+	std::string key = stanza.substr(0, key_value_divider);
+	std::string value;
+	if (key_value_divider != std::string::npos)
+	{
+	  value = stanza.substr((key_value_divider + 1));
+	}
+
+	if (m_query_dict.count(key) != 0)
+	{
+	  throw std::invalid_argument("Bad key in the query string!");
+	}
+
+	m_query_dict.emplace(key, value);
+	carat = ((stanza_end != std::string::npos) ? (stanza_end + 1)
+		 : std::string::npos);
+	stanza_end = m_query.find_first_of('&', carat);
+      }
+      while ((stanza_end != std::string::npos) 
+	     || (carat != std::string::npos));
+    }
+  }
+
   std::string m_scheme;
+  std::string m_authority;
   std::string m_username;
   std::string m_password;
-  std::string m_domain;
+  std::string m_host;
   std::string m_path;
   std::string m_query;
   std::string m_fragment;
 
   std::map<std::string, std::string> m_query_dict;
-  bool m_query_dict_initialized;
-  
+
+  scheme_category m_category;
   unsigned long m_port;
 };
