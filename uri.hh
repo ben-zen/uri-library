@@ -147,7 +147,7 @@ private:
     }
 
     size_t scheme_end = uri_text.find_first_of(':');
-    if ((scheme_end == std::string::npos) || (scheme_end == uri_length))
+    if ((scheme_end == std::string::npos) || (scheme_end == 0))
     {
       throw std::invalid_argument("Could not find the scheme of the supplied URI. Supplied URI was: " + uri_text);
     }

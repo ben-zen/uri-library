@@ -8,15 +8,70 @@
 
 void test_call(bool succeeded, char const *what)
 {
-  std::cout << (succeeded ? "PASSED: " : "FAILED: ") << what << std::endl;
+  std::cout << (succeeded ? "PASSED: " : "FAILED: ") << what << std::endl << std::endl;
+}
+
+void test_scheme()
+{
+  std::string bad_scheme("http");
+  std::string no_length_scheme(":abc");
+  std::string only_scheme("http:");
+
+  std::cout << "Testing the scheme parsing component." << std::endl << std::endl;
+
+  try
+  {
+    uri test_uri(bad_scheme);
+  }
+  catch (std::invalid_argument iae)
+  {
+    std::cout << "Caught expected failure with a malformed scheme section (missing end-colon):" 
+	      << std::endl
+	      << iae.what()
+	      << std::endl
+	      << std::endl;
+  }
+
+  try
+  {
+    uri test_uri(no_length_scheme);
+  }
+  catch (std::invalid_argument iae)
+  {
+    std::cout << "Caught expected failure with a malformed scheme section (zero-length scheme):" 
+	      << std::endl
+	      << iae.what()
+	      << std::endl
+	      << std::endl;
+  }
+
+  try
+  {
+    uri test_uri(only_scheme);
+    std::cout << "Constructed expected URI with only a scheme." << std::endl
+	      << "URI is: " << test_uri.to_string() << std::endl << std::endl;
+
+    test_call((test_uri.get_scheme() == "http"), "Captured expected scheme: \"http\".");
+  }
+  catch (std::invalid_argument iae)
+  {
+    std::cout << "Caught unexpected exception in constructing the URI: " << only_scheme
+	      << std::endl
+	      << "Exception states: " << iae.what()
+	      << std::endl
+	      << std::endl;
+  }
 }
 
 int main()
 {
+  std::cout << "Running the URI library test suite ..." << std::endl << std::endl;
+  
+  test_scheme();
+
   uri test(std::string("http://www.example.com/test?query#fragment"));
   std::cout << test.get_host() << std::endl;
 
-  test_call((test.get_scheme() == "http"), "scheme");
   test_call((test.get_host() == "www.example.com"), "host");
   test_call((test.get_path() == "test"), "path");
   std::cout << test.get_path() << std::endl;
@@ -45,16 +100,6 @@ int main()
   std::cout << std::endl << "Checking some basic URN handling:" << std::endl;
   uri simple_urn("urn:example:mammal:monotreme:echidna");
   std::cout << simple_urn.to_string() << std::endl << std::endl;
-
-  // Check for a broken scheme;
-  try
-  {
-    uri failing_scheme(std::string("a"));
-  }
-  catch (std::invalid_argument iae)
-  {
-    std::cout << iae.what() << std::endl;
-  }
 
   // Check for a broken username/password pair
   try
