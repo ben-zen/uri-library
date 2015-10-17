@@ -38,6 +38,9 @@ int main()
   uri no_host("file:/example.txt");
   std::cout << no_host.to_string() << std::endl;
 
+  uri no_path_no_separator("https://www.example.com");
+  std::cout << no_path_no_separator.to_string() << std::endl;
+
   // Check for a broken scheme;
   try
   {

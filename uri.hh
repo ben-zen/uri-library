@@ -218,13 +218,16 @@ private:
 
 	  size_t host_end = std::min(path_start, port_indicator);
 	  m_host = m_authority.substr(host_start, (host_end - host_start));
-	  path_start++;
+	  if (path_start != std::string::npos)
+	  {
+	    path_start++;
+	  }
 	}
 	else
 	{
 	  path_start = (!m_authority.compare(0, 1, "/")) ? 1 : 0;
 	}
-	m_path = m_authority.substr(path_start);
+	m_path = (path_start < m_authority.length()) ? m_authority.substr(path_start) : "";
       }
       break;
     case scheme_category::NonHierarchical:
