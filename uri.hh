@@ -65,13 +65,13 @@ public:
     m_category(category),
     m_path_is_rooted(rooted_path)
   {
-    if (replacements.count(component::Scheme))
+    if (components.count(component::Scheme))
     {
-      if (components[component::Scheme].length() == 0)
+      if (components.at(component::Scheme).length() == 0)
       {
 	throw std::invalid_argument("Scheme cannot be empty.");
       }
-      m_scheme = components[component::Scheme];
+      m_scheme = components.at(component::Scheme);
     }
     else
     {
@@ -89,8 +89,8 @@ public:
       bool has_password = components.count(component::Password);
       if (has_username && has_password)
       {
-	m_username = components[component::Username];
-	m_password = components[component::Password];
+	m_username = components.at(component::Username);
+	m_password = components.at(component::Password);
       }
       else if ((has_username && !has_password) || (!has_username && has_password))
       {
@@ -99,17 +99,17 @@ public:
 
       if (components.count(component::Host))
       {
-	m_host = components[component::Host];
+	m_host = components.at(component::Host);
       }
 
       if (components.count(component::Port))
       {
-	m_port = std::stoul(components[component::Port]);
+	m_port = std::stoul(components.at(component::Port));
       }
 
       if (components.count(component::Path))
       {
-	m_path = components[component::Path];
+	m_path = components.at(component::Path);
       }
       else
       {
@@ -129,7 +129,7 @@ public:
 
       if (components.count(component::Content))
       {
-	m_content = components[component::Content];
+	m_content = components.at(component::Content);
       }
       else
       {
@@ -139,12 +139,12 @@ public:
 
     if (components.count(component::Query))
     {
-      m_query = components[component::Query];
+      m_query = components.at(component::Query);
     }
 
     if (components.count(component::Fragment))
     {
-      m_fragment = components[component::Fragment];
+      m_fragment = components.at(component::Fragment);
     } 
   }    
 
@@ -153,36 +153,36 @@ public:
     m_path_is_rooted(other.m_path_is_rooted)
   {
     m_scheme = (replacements.count(component::Scheme))
-      ? replacements[component::Scheme] : other.m_scheme;
+      ? replacements.at(component::Scheme) : other.m_scheme;
 
     if (m_category == scheme_category::Hierarchical)
     {
       m_username = (replacements.count(component::Username))
-	? replacements[component::Username] : other.m_username;
+	? replacements.at(component::Username) : other.m_username;
 
       m_password = (replacements.count(component::Password))
-	? replacements[component::Password] : other.m_password;
+	? replacements.at(component::Password) : other.m_password;
 
       m_host = (replacements.count(component::Host))
-	? replacements[component::Host] : other.m_host;
+	? replacements.at(component::Host) : other.m_host;
 
       m_port = (replacements.count(component::Port))
-	? std::stoul(replacements[component::Port]) : other.m_port;
+	? std::stoul(replacements.at(component::Port)) : other.m_port;
 
       m_path = (replacements.count(component::Path))
-	? replacements[component::Path] : other.m_path;
+	? replacements.at(component::Path) : other.m_path;
     }
     else
     {
       m_content = (replacements.count(component::Content))
-	? replacements[component::Content] : other.m_content;
+	? replacements.at(component::Content) : other.m_content;
     }
 
     m_query = (replacements.count(component::Query))
-      ? replacements[component::Query] : other.m_query;
+      ? replacements.at(component::Query) : other.m_query;
 
     m_fragment = (replacements.count(component::Fragment))
-      ? replacements[component::Fragment] : other.m_fragment;
+      ? replacements.at(component::Fragment) : other.m_fragment;
   }
 
   // Copy constructor; just use the copy assignment operator internally.
