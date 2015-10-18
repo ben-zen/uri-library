@@ -13,13 +13,26 @@ is invalid and will throw a `std::domain_error`, while accessing the content
 component of a hierarchical URI is invalid and will likewise throw a
 `std::domain_error`. For additional notes, see the following API documentation.
 
-## URI API ##
+## URI Library API ##
 
 ### Constructors ###
 * `uri(char const *uri_text, scheme_category category =
   scheme_category::Hierarchical)` and `uri(std::string const &uri_text,
   scheme_category category = scheme_category::Hierarchical)`: constructs
   a `uri` object and throws an exception for any invalid component.
+* `uri(uri const &other)` and `uri &operator=(uri const &other)`: copy
+  constructor and copy assignment operator. Creates a duplicate of the supplied
+  uri.
+* `uri(uri const &other, std::map<component, std::string> const &replacements)`:
+  Constructs a new URI with the supplied URI, with components replaced as per
+  the replacements dictionary. This constructor cannot change if the path is
+  rooted or not, and it cannot change from a hierarchical URI to a
+  non-hierarchical URI.
+* `uri(std::map<component, std::string> const &components, scheme_category
+  category, bool rooted_path)`: Constructs a new URI from the components given.
+  Note that currently it is possible to build very invalid URIs with this setup,
+  as no validation is performed (as of right now.) This constructor is a wee bit
+  experimental.
 
 ### Accessors ###
 * `std::string const &get_scheme() const`: get the scheme component.
@@ -78,3 +91,8 @@ with GCC:
 (You can substitute `clang++` when your clang installation includes C++11
 support. I haven't tested with MSVC yet.)
 
+## Current issues ##
+Individual components really require private setter operations, and currently it
+is fairly trivial to corrupt a URI. Also, IPv6 URIs are not supported because of
+a weakness in my string parsing. (They can be assembled by the otherwise-weak
+map-based constructors, however.)

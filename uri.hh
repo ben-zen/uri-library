@@ -32,6 +32,19 @@ public:
     NonHierarchical
   };
 
+  enum class component
+  {
+    Scheme,
+    Content,
+    Username,
+    Password,
+    Host,
+    Port,
+    Path,
+    Query,
+    Fragment
+  };
+
   uri(char const *uri_text, scheme_category category = scheme_category::Hierarchical) :
     m_category(category),
     m_path_is_rooted(false),
@@ -47,6 +60,157 @@ public:
   {
     setup(uri_text, category);
   };
+
+  uri(std::map<component, std::string> const &components, scheme_category category, bool rooted_path) :
+    m_category(category),
+    m_path_is_rooted(rooted_path)
+  {
+    if (replacements.count(component::Scheme))
+    {
+      if (components[component::Scheme].length() == 0)
+      {
+	throw std::invalid_argument("Scheme cannot be empty.");
+      }
+      m_scheme = components[component::Scheme];
+    }
+    else
+    {
+      throw std::invalid_argument("A URI must have a scheme.");
+    }
+
+    if (category == scheme_category::Hierarchical)
+    {
+      if (components.count(component::Content))
+      {
+	throw std::invalid_argument("The content component is only for use in non-hierarchical URIs.");
+      }
+
+      bool has_username = components.count(component::Username);
+      bool has_password = components.count(component::Password);
+      if (has_username && has_password)
+      {
+	m_username = components[component::Username];
+	m_password = components[component::Password];
+      }
+      else if ((has_username && !has_password) || (!has_username && has_password))
+      {
+	throw std::invalid_argument("If a username or password is supplied, both must be provided.");
+      }
+
+      if (components.count(component::Host))
+      {
+	m_host = components[component::Host];
+      }
+
+      if (components.count(component::Port))
+      {
+	m_port = std::stoul(components[component::Port]);
+      }
+
+      if (components.count(component::Path))
+      {
+	m_path = components[component::Path];
+      }
+      else
+      {
+	throw std::invalid_argument("A path is required on a hierarchical URI, even an empty path.");
+      }
+    }
+    else
+    {
+      if (components.count(component::Username)
+	  || components.count(component::Password)
+	  || components.count(component::Host)
+	  || components.count(component::Port)
+	  || components.count(component::Path))
+      {
+	throw std::invalid_argument("None of the hierarchical components are allowed in a non-hierarchical URI.");
+      }
+
+      if (components.count(component::Content))
+      {
+	m_content = components[component::Content];
+      }
+      else
+      {
+	throw std::invalid_argument("Content is a required component for a non-hierarchical URI, even an empty string.");
+      }
+    }
+
+    if (components.count(component::Query))
+    {
+      m_query = components[component::Query];
+    }
+
+    if (components.count(component::Fragment))
+    {
+      m_fragment = components[component::Fragment];
+    } 
+  }    
+
+  uri(uri const &other, std::map<component, std::string> const &replacements) :
+    m_category(other.m_category),
+    m_path_is_rooted(other.m_path_is_rooted)
+  {
+    m_scheme = (replacements.count(component::Scheme))
+      ? replacements[component::Scheme] : other.m_scheme;
+
+    if (m_category == scheme_category::Hierarchical)
+    {
+      m_username = (replacements.count(component::Username))
+	? replacements[component::Username] : other.m_username;
+
+      m_password = (replacements.count(component::Password))
+	? replacements[component::Password] : other.m_password;
+
+      m_host = (replacements.count(component::Host))
+	? replacements[component::Host] : other.m_host;
+
+      m_port = (replacements.count(component::Port))
+	? std::stoul(replacements[component::Port]) : other.m_port;
+
+      m_path = (replacements.count(component::Path))
+	? replacements[component::Path] : other.m_path;
+    }
+    else
+    {
+      m_content = (replacements.count(component::Content))
+	? replacements[component::Content] : other.m_content;
+    }
+
+    m_query = (replacements.count(component::Query))
+      ? replacements[component::Query] : other.m_query;
+
+    m_fragment = (replacements.count(component::Fragment))
+      ? replacements[component::Fragment] : other.m_fragment;
+  }
+
+  // Copy constructor; just use the copy assignment operator internally.
+  uri(uri const &other)
+  {
+    *this = other;
+  };
+
+  // Copy assignment operator
+  uri &operator=(uri const &other)
+  {
+    if (this != &other)
+    {
+      m_scheme = other.m_scheme;
+      m_content = other.m_content;
+      m_username = other.m_username;
+      m_password = other.m_password;
+      m_host = other.m_host;
+      m_path = other.m_path;
+      m_query = other.m_query;
+      m_fragment = other.m_fragment;
+      m_query_dict = other.m_query_dict;
+      m_category = other.m_category;
+      m_port = other.m_port;
+      m_path_is_rooted = other.m_path_is_rooted;
+    }
+    return *this;
+  }
 
   ~uri() { };
 

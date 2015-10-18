@@ -101,6 +101,10 @@ int main()
   std::cout << simple_urn.to_string() << std::endl << std::endl;
   std::cout << simple_urn.get_path() << std::endl << std::endl;
 
+  // Testing the copy constructor.
+  uri copied_urn(simple_urn);
+  std::cout << copied_urn.to_string() << std::endl << std::endl;
+
   // Check for a broken username/password pair
   try
   {
