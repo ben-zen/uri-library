@@ -78,8 +78,12 @@ int main()
   test_call((test.get_query() == "query"), "query");
   std::cout << test.get_query() << std::endl;
   test_call((test.get_fragment() == "fragment"), "fragment");
-  std::cout << test.get_fragment() << std::endl;
+  std::cout << test.get_fragment() << std::endl << std::endl;
 
+  std::cout << "Testing IPv6 support." << std::endl;
+  uri ipv6_test("http://[::1]:8080/");
+  std::cout << ipv6_test.get_host() << std::endl;
+  std::cout << ipv6_test.get_port() << std::endl << std::endl;
 
   uri no_path_test("http://www.example.com:8080/");
   test_call((no_path_test.get_path() == ""), "empty path");

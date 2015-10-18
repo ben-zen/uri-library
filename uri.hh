@@ -5,6 +5,7 @@
 #include <map>
 #include <string>
 #include <stdexcept>
+#include <utility>
 
 class uri
 {
@@ -344,7 +345,6 @@ private:
 
   void setup(std::string const &uri_text, scheme_category category)
   {
-    size_t carat = 0;
     size_t const uri_length = uri_text.length();
 
     if (uri_length == 0)
@@ -352,14 +352,10 @@ private:
       throw std::invalid_argument("URIs cannot be of zero length.");
     }
 
-    size_t scheme_end = uri_text.find_first_of(':');
-    if ((scheme_end == std::string::npos) || (scheme_end == 0))
-    {
-      throw std::invalid_argument("Could not find the scheme of the supplied URI. Supplied URI was: " + uri_text);
-    }
-
-    m_scheme = uri_text.substr(carat, (scheme_end - carat));
-    carat = scheme_end; // scheme_end is currently at the first ':'
+    std::string::const_iterator cursor = parse_scheme(uri_text, uri_text.begin());
+    // After calling parse_scheme, *cursor == ':'. We increment to access the
+    // next character.
+    cursor = parse_content(uri_text, (cursor + 1));
 
     size_t query_token_location = uri_text.find_first_of('?');
     size_t fragment_token_location = uri_text.find_first_of('#');
@@ -386,79 +382,196 @@ private:
 
     init_query_dictionary(); // If the query string is empty, this will be empty too.
 
-    size_t content_end = std::min(query_token_location, 
-                                  fragment_token_location);
-    m_content = uri_text.substr((scheme_end + 1),
-                                ((content_end != std::string::npos)
-                                 ? (content_end - 1 - scheme_end)
-                                 : std::string::npos));
-
-    // The parsing of the authority component differs between hierarchical and non-hierarchical URIs.
-    switch (category)
-    {
-    case scheme_category::Hierarchical:
-      if (m_content.length() > 0)
-      {
-	size_t path_start = std::string::npos;
-	if (!m_content.compare(0, 2, "//"))
-	{
-	  // In this case, we have a host and possibly additional data; parse it in chunks.
-	  size_t host_start = 2;
-	  size_t user_pass_end = m_content.find_first_of('@');
-	  if (user_pass_end != std::string::npos)
-	  {
-	    size_t user_pass_divider = m_content.find_first_of(':');
-	    if (user_pass_divider > user_pass_end)
-	    {
-	      throw std::invalid_argument("Could not parse the username/password section of the supplied URI. Supplied URI was missing a partition between username and password components.");
-	    }
-
-	    m_username = m_content.substr(0, user_pass_divider);
-	    m_password = m_content.substr((user_pass_divider + 1), (user_pass_end - user_pass_divider - 1));
-	    host_start = user_pass_end + 1;
-	  }
-
-	  path_start = m_content.find_first_of('/', host_start);
-	  size_t port_indicator = m_content.find_first_of(':', host_start);
-	  if (port_indicator != std::string::npos)
-	  {
-	    m_port = std::stoul(m_content.substr((port_indicator + 1),
-                                                 ((path_start != std::string::npos)
-                                                  ? (path_start - port_indicator - 1)
-                                                  : std::string::npos)));
-	  }
-
-	  size_t host_end = std::min(path_start, port_indicator);
-	  m_host = m_content.substr(host_start, (host_end - host_start));
-	  if (path_start != std::string::npos)
-	  {
-	    path_start++;
-	  }
-	  m_path_is_rooted = true;
-	}
-	else
-	{
-	  if (!(m_content.compare(0, 1, "/")))
-	  {
-	    path_start = 1;
-	    m_path_is_rooted = true;
-	  }
-	  else
-	  {
-	    path_start = 0;
-	  }
-	}
-	m_path = (path_start < m_content.length()) ? m_content.substr(path_start) : "";
-      }
-      break;
-    case scheme_category::NonHierarchical:
-      // Included for completeness; the content component of non-hierarchical
-      // URIs is not parsed by this class; in the future specializations of this
-      // class might support specific cases, but that will be on a case-by-case
-      // basis.
-      break;
-    }
   };
+
+  std::string::const_iterator parse_scheme(std::string const &uri_text,
+					   std::string::const_iterator scheme_start)
+  {
+    std::string::const_iterator scheme_end = scheme_start;
+    while ((scheme_end != uri_text.end()) && (*scheme_end != ':'))
+    {
+      if (!(std::isalnum(*scheme_end) || (*scheme_end == '-')
+	    || (*scheme_end == '+') || (*scheme_end == '.')))
+      {
+	throw std::invalid_argument("Invalid character found in the scheme component. Supplied URI was: \""
+				    + uri_text + "\".");
+      }
+      ++scheme_end;
+    }
+
+    if (scheme_end == uri_text.end())
+    {
+      throw std::invalid_argument("End of URI found while parsing the scheme. Supplied URI was: \""
+				  + uri_text + "\".");
+    }
+
+    if (scheme_start == scheme_end)
+    {
+      throw std::invalid_argument("Scheme component cannot be zero-length. Supplied URI was: \""
+				  + uri_text + "\".");
+    }
+
+    m_scheme = std::move(std::string(scheme_start, scheme_end));
+    return scheme_end;
+  }
+
+  std::string::const_iterator parse_content(std::string const &uri_text,
+					    std::string::const_iterator content_start)
+  {
+    std::string::const_iterator content_end = content_start;
+    while ((content_end != uri_text.end()) && (*content_end != '?') && (*content_end != '#'))
+    {
+      ++content_end;
+    }
+
+    m_content = std::string(content_start, content_end);
+
+    if ((m_category == scheme_category::Hierarchical) && (m_content.length() > 0))
+    {
+      // If it's a hierarchical URI, the content should be parsed for the hierarchical components.
+      std::string::const_iterator path_start = m_content.begin();
+      std::string::const_iterator path_end = m_content.end();
+      if (!m_content.compare(0, 2, "//"))
+      {
+	// In this case an authority component is present.
+	std::string::const_iterator authority_cursor = (m_content.begin() + 2);
+	if (m_content.find_first_of('@') != std::string::npos)
+	{
+	  std::string::const_iterator userpass_divider = parse_username(uri_text,
+									m_content,
+									authority_cursor);
+	  authority_cursor = parse_password(uri_text, m_content, (userpass_divider + 1));
+	  // After this call, *authority_cursor == '@', so we skip over it.
+	  ++authority_cursor;
+	}
+
+	authority_cursor = parse_host(uri_text, m_content, authority_cursor);
+
+	if (*authority_cursor == ':')
+	{
+	  authority_cursor = parse_port(uri_text, m_content, (authority_cursor + 1));
+	}
+
+	if (*authority_cursor == '/')
+	{
+	  // Then the path is rooted, and we should note this.
+	  m_path_is_rooted = true;
+	  path_start = authority_cursor + 1;
+	}
+      }
+      else if (!m_content.compare(0, 1, "/"))
+      {
+	m_path_is_rooted = true;
+	++path_start;
+      }
+
+      // We can now build the path based on what remains in the content string,
+      // since that's all that exists after the host and optional port component.
+      m_path = std::string(path_start, path_end);
+    }
+    return content_end;
+  }
+
+  std::string::const_iterator parse_username(std::string const &uri_text,
+					     std::string const &content,
+					     std::string::const_iterator username_start)
+  {
+    std::string::const_iterator username_end = username_start;
+    // Since this is only reachable when '@' was in the content string, we can
+    // ignore the end-of-string case.
+    while (*username_end != ':')
+    {
+      if (*username_end == '@')
+      {
+	throw std::invalid_argument("Username must be followed by a password. Supplied URI was: \""
+				    + uri_text + "\".");
+      }
+      ++username_end;
+    }
+    m_username = std::move(std::string(username_start, username_end));
+    return username_end;
+  }
+
+  std::string::const_iterator parse_password(std::string const &uri_text,
+					     std::string const &content,
+					     std::string::const_iterator password_start)
+  {
+    std::string::const_iterator password_end = password_start;
+    while (*password_end != '@')
+    {
+      ++password_end;
+    }
+
+    m_password = std::move(std::string(password_start, password_end));
+    return password_end;
+  }
+
+  std::string::const_iterator parse_host(std::string const &uri_text,
+					 std::string const &content,
+					 std::string::const_iterator host_start)
+  {
+    std::string::const_iterator host_end = host_start;
+    // So, the host can contain a few things. It can be a domain, it can be an
+    // IPv4 address, it can be an IPv6 address, or an IPvFuture literal. In the
+    // case of those last two, it's of the form [...] where what's between the
+    // brackets is a matter of which IPv?? version it is.
+    while (host_end != content.end())
+    {
+      if (*host_end == '[')
+      {
+	// We're parsing an IPv6 or IPvFuture address, so we should handle that
+	// instead of the normal procedure.
+	while ((host_end != content.end()) && (*host_end != ']'))
+	{
+	  ++host_end;
+	}
+
+	if (host_end == content.end())
+	{
+	  throw std::invalid_argument("End of content component encountered "
+				      "while parsing the host component. "
+				      "Supplied URI was: \""
+				      + uri_text + "\".");
+	}
+
+	++host_end;
+	break;
+	// We can stop looping, we found the end of the IP literal, which is the
+	// whole of the host component when one's in use.
+      }
+      else if ((*host_end == ':') || (*host_end == '/'))
+      {
+	break;
+      }
+      else
+      {
+	++host_end;
+      }
+    }
+
+    m_host = std::move(std::string(host_start, host_end));
+    return host_end;
+  }
+
+  std::string::const_iterator parse_port(std::string const &uri_text,
+					std::string const &content,
+					std::string::const_iterator port_start)
+  {
+    std::string::const_iterator port_end = port_start;
+    while ((port_end != content.end()) && (*port_end != '/'))
+    {
+      if (!std::isdigit(*port_end))
+      {
+	throw std::invalid_argument("Invalid character while parsing the port. "
+				    "Supplied URI was: \"" + uri_text + "\".");
+      }
+
+      ++port_end;
+    }
+
+    m_port = std::stoul(std::string(port_start, port_end));
+    return port_end;
+  }
 
   void init_query_dictionary()
   {
