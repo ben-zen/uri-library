@@ -116,8 +116,15 @@ int main()
   }
   catch (std::invalid_argument iae)
   {
-    std::cout << iae.what() << std::endl;
+    std::cout << iae.what() << std::endl << std::endl;
   }
+
+  // Testing an abnormal URI that other parsers fail on
+  uri abnormal_path_uri("http://a/b/c/g;x=1/y");
+  std::cout << "Checking path parsing for an abnormal path:"
+            << std::endl
+            << abnormal_path_uri.get_path()
+            << std::endl << std::endl;
   
   return 0;
 }
