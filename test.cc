@@ -125,6 +125,13 @@ int main()
             << std::endl
             << abnormal_path_uri.get_path()
             << std::endl << std::endl;
+
+  // Testing a non-hierarchical URI:
+  uri data_uri("data:text/html,<!DOCTYPE html><html><head><title>test</title></head><body><h1>testing</h1><p>Test.</p></body></html>",
+               uri::scheme_category::NonHierarchical);
+  std::cout << "Checking out handling of a non-hierarchical URI:" << std::endl
+            << data_uri.get_content()
+            << std::endl << std::endl;
   
   return 0;
 }

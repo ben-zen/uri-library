@@ -92,7 +92,24 @@ with GCC:
 support. I haven't tested with MSVC yet.)
 
 ## Current issues ##
-Individual components really require private setter operations, and currently it
-is fairly trivial to corrupt a URI. Also, IPv6 URIs are not supported because of
-a weakness in my string parsing. (They can be assembled by the otherwise-weak
-map-based constructors, however.)
+The map-based instantiation is very weak currently, as it does absolutely no
+validation. Similarly, the IPv6 parsing is only on structure, it doesn't
+validate that the address is a valid format. That's up for consideration for
+future work. Even though the documentation currently states that this library
+normalizes URIs, it does not presently normalize the case of a URI, and since
+the path handling is generic, rationalization of a path involving relative
+sections (`.` or `..`) has to be application specific.
+
+## Future work ##
+One thing I'd like to do with this library is add specializations for specific
+types of non-hierarchical URIs; `data:`, `mailto:`, and `geo:` are all strong
+candidates for subclasses to support their formats, since they're very
+well-defined. Since the current class structure supports hierarchical URIs very
+well as-is, no further extensions seem necessary in that direction.
+
+Once C++14 support is more widespread (or I can find an appropriate value to
+check for, `get_username()` and `get_password()` will be marked as
+`\[[deprecated]]`, in order to appropriately warn on their use. Please heed this
+warning, and don't use `get_username()` or `get_password()`, they're horribly
+unsafe and only included for completeness. At some point in the future, calling
+them may result in an exception being thrown at runtime.
