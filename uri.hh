@@ -352,32 +352,20 @@ private:
       throw std::invalid_argument("URIs cannot be of zero length.");
     }
 
-    std::string::const_iterator cursor = parse_scheme(uri_text, uri_text.begin());
-    // After calling parse_scheme, *cursor == ':'. We increment to access the
-    // next character.
+    std::string::const_iterator cursor = parse_scheme(uri_text, 
+                                                      uri_text.begin());
+    // After calling parse_scheme, *cursor == ':'; none of the following parsers
+    // expect a separator character, so we advance the cursor upon calling them.
     cursor = parse_content(uri_text, (cursor + 1));
 
-    size_t query_token_location = uri_text.find_first_of('?');
-    size_t fragment_token_location = uri_text.find_first_of('#');
-
-    if (fragment_token_location != std::string::npos)
+    if ((cursor != uri_text.end()) && (*cursor == '?'))
     {
-      // It's the last component of the URI, so I'm willing to be lazy
-      // and use std::string::npos for the length.
-      m_fragment = uri_text.substr(fragment_token_location + 1, std::string::npos);
+      cursor = parse_query(uri_text, (cursor + 1));
     }
 
-    if (query_token_location != std::string::npos)
+    if ((cursor != uri_text.end()) && (*cursor == '#'))
     {
-      if ((fragment_token_location != std::string::npos) && (fragment_token_location < query_token_location))
-      {
-	throw std::invalid_argument("The order of the fragment and the query is inverted in the supplied URI.");
-      }
-
-      m_query = uri_text.substr((query_token_location + 1),
-				((fragment_token_location != std::string::npos)
-				 ? (fragment_token_location - 1 - query_token_location)
-				 : std::string::npos));
+      cursor = parse_fragment(uri_text, (cursor + 1));
     }
 
     init_query_dictionary(); // If the query string is empty, this will be empty too.
@@ -413,7 +401,7 @@ private:
 
     m_scheme = std::move(std::string(scheme_start, scheme_end));
     return scheme_end;
-  }
+  };
 
   std::string::const_iterator parse_content(std::string const &uri_text,
 					    std::string::const_iterator content_start)
@@ -424,7 +412,7 @@ private:
       ++content_end;
     }
 
-    m_content = std::string(content_start, content_end);
+    m_content = std::move(std::string(content_start, content_end));
 
     if ((m_category == scheme_category::Hierarchical) && (m_content.length() > 0))
     {
@@ -467,10 +455,10 @@ private:
 
       // We can now build the path based on what remains in the content string,
       // since that's all that exists after the host and optional port component.
-      m_path = std::string(path_start, path_end);
+      m_path = std::move(std::string(path_start, path_end));
     }
     return content_end;
-  }
+  };
 
   std::string::const_iterator parse_username(std::string const &uri_text,
 					     std::string const &content,
@@ -490,7 +478,7 @@ private:
     }
     m_username = std::move(std::string(username_start, username_end));
     return username_end;
-  }
+  };
 
   std::string::const_iterator parse_password(std::string const &uri_text,
 					     std::string const &content,
@@ -504,7 +492,7 @@ private:
 
     m_password = std::move(std::string(password_start, password_end));
     return password_end;
-  }
+  };
 
   std::string::const_iterator parse_host(std::string const &uri_text,
 					 std::string const &content,
@@ -551,7 +539,7 @@ private:
 
     m_host = std::move(std::string(host_start, host_end));
     return host_end;
-  }
+  };
 
   std::string::const_iterator parse_port(std::string const &uri_text,
 					std::string const &content,
@@ -571,8 +559,29 @@ private:
 
     m_port = std::stoul(std::string(port_start, port_end));
     return port_end;
-  }
+  };
 
+  std::string::const_iterator parse_query(std::string const &uri_text,
+                                          std::string::const_iterator query_start)
+  {
+    std::string::const_iterator query_end = query_start;
+    while ((query_end != uri_text.end()) && (*query_end != '#'))
+    {
+      // Queries can contain almost any character except hash, which is reserved
+      // for the start of the fragment.
+      ++query_end;
+    }
+    m_query = std::move(std::string(query_start, query_end));
+    return query_end;
+  };
+
+  std::string::const_iterator parse_fragment(std::string const &uri_text,
+                                             std::string::const_iterator fragment_start)
+  {
+    m_fragment = std::move(std::string(fragment_start, uri_text.end()));
+    return uri_text.end();
+  };  
+  
   void init_query_dictionary()
   {
     if (!m_query.empty())
