@@ -2,10 +2,132 @@
 // Licensed under the MIT license.
 
 #pragma once
+#include <cctype>
 #include <map>
+#include <regex>
 #include <string>
 #include <stdexcept>
 #include <utility>
+
+class host
+{
+  /* The host component of a URI can be composed of a registered name, an IPv4
+   * address, or an IP literal (IPv6 or future standards.) This implementation
+   * will focus on IPv4 and IPv6 parsing (and registered names).
+   */
+public:
+  enum class format
+  {
+    RegisteredName,
+    InternetProtocolv4Address,
+    InternetProtocolLiteral
+  };
+  
+  host(char const *host_address, format host_format)
+  {
+    m_stored_format = host_format;
+    switch (host_format)
+    {
+    case format::RegisteredName:
+      m_registered_name = host_address;
+      break;
+    case format::InternetProtocolv4Address:
+      parse_ipv4_address(std::string(host_address));
+      break;
+    case format::InternetProtocolLiteral:    
+      break;
+    }
+  }
+  
+  ~host()
+  {
+  }
+  
+  format get_format()
+  {
+    return m_stored_format;
+  };
+  
+  std::string to_string()
+  {
+    std::string formatted_name;
+    switch (m_stored_format)
+    {
+    case format::RegisteredName:
+      formatted_name = m_registered_name;
+      break;
+    case format::InternetProtocolv4Address:
+      formatted_name = format_ipv4_address();
+      break;
+    case format::InternetProtocolLiteral:
+      break;
+    }
+    return formatted_name;
+  };
+  
+private:
+
+  void parse_ipv4_address(std::string const &address)
+  {
+    // An IPv4 address is in the form `xxx.xxx.xxx.xxx`, where each stanza is
+    // a decimal value between 0 and 255. Parsing this is reasonably direct.
+    
+    // There is a shorter form of this, but for the moment I'll let it slide as
+    // a first pass.
+    std::regex ipv4_address_format("[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}");
+    if (!std::regex_match(address, ipv4_address_format))
+    {
+      throw std::invalid_argument("Supplied host name is not an IPv4 address. Supplied address was \""
+                                  + address + "\".");
+    }
+    
+    std::string match_address = address;
+    std::regex ipv4_stanza_format("[0-9]{1,3}");
+    std::regex_iterator<std::string::iterator> ipv4_stanzas(match_address.begin(),
+                                                            match_address.end(),
+                                                            ipv4_stanza_format);
+    std::regex_iterator<std::string::iterator> iter_end;
+ 
+    for (int iter = 0; iter < 4; iter++)
+    {
+      if (ipv4_stanzas == iter_end)
+      {
+        throw std::logic_error("Unexpected end of IPv4 address found while parsing address"
+                               + address);
+      }
+      int stanza = std::stoi((*ipv4_stanzas).str());
+      if (stanza > 255)
+      {
+        throw std::invalid_argument("Supplied string is not an IPv4 address" + address);
+      }
+      else
+      {
+        // Since the match had to be specifically 1-3 digits, it cannot be negative.
+        m_ipv4_address[iter] = static_cast<unsigned char>(stanza);
+      }
+      ipv4_stanzas++;
+    }
+  }
+
+  std::string format_ipv4_address()
+  {
+    if (m_stored_format != format::InternetProtocolv4Address)
+    {
+      throw std::domain_error("format_ipv4_address should only be called for IPv4 hosts.");
+    }
+    
+    std::string result = std::to_string(m_ipv4_address[0]) + "."
+                         + std::to_string(m_ipv4_address[1]) + "."
+                         + std::to_string(m_ipv4_address[2]) + "."
+                         + std::to_string(m_ipv4_address[3]);
+    return result;
+  }
+
+  format m_stored_format;
+  std::string    m_registered_name;
+  unsigned char  m_ipv4_address[4];
+  unsigned short m_ipv6_address[8];
+};
 
 class uri
 {
@@ -22,7 +144,7 @@ class uri
    * the use of semicolons.
    *
    * The following is an example from Wikipedia of a hierarchical URI:
-   * scheme:[//[user:password@]domain[:port]][/]path[?query][#fragment]
+   * scheme:[//[user:password@]host[:port]][/]path[?query][#fragment]
    */
 
 public:
@@ -70,7 +192,7 @@ public:
     {
       if (components.at(component::Scheme).length() == 0)
       {
-	throw std::invalid_argument("Scheme cannot be empty.");
+        throw std::invalid_argument("Scheme cannot be empty.");
       }
       m_scheme = components.at(component::Scheme);
     }
@@ -83,58 +205,58 @@ public:
     {
       if (components.count(component::Content))
       {
-	throw std::invalid_argument("The content component is only for use in non-hierarchical URIs.");
+	      throw std::invalid_argument("The content component is only for use in non-hierarchical URIs.");
       }
 
       bool has_username = components.count(component::Username);
       bool has_password = components.count(component::Password);
       if (has_username && has_password)
       {
-	m_username = components.at(component::Username);
-	m_password = components.at(component::Password);
+        m_username = components.at(component::Username);
+        m_password = components.at(component::Password);
       }
       else if ((has_username && !has_password) || (!has_username && has_password))
       {
-	throw std::invalid_argument("If a username or password is supplied, both must be provided.");
+	      throw std::invalid_argument("If a username or password is supplied, both must be provided.");
       }
 
       if (components.count(component::Host))
       {
-	m_host = components.at(component::Host);
+        m_host = components.at(component::Host);
       }
 
       if (components.count(component::Port))
       {
-	m_port = std::stoul(components.at(component::Port));
+        m_port = std::stoul(components.at(component::Port));
       }
 
       if (components.count(component::Path))
       {
-	m_path = components.at(component::Path);
+        m_path = components.at(component::Path);
       }
       else
       {
-	throw std::invalid_argument("A path is required on a hierarchical URI, even an empty path.");
+        throw std::invalid_argument("A path is required on a hierarchical URI, even an empty path.");
       }
     }
     else
     {
       if (components.count(component::Username)
-	  || components.count(component::Password)
-	  || components.count(component::Host)
-	  || components.count(component::Port)
-	  || components.count(component::Path))
+         || components.count(component::Password)
+         || components.count(component::Host)
+         || components.count(component::Port)
+         || components.count(component::Path))
       {
-	throw std::invalid_argument("None of the hierarchical components are allowed in a non-hierarchical URI.");
+        throw std::invalid_argument("None of the hierarchical components are allowed in a non-hierarchical URI.");
       }
 
       if (components.count(component::Content))
       {
-	m_content = components.at(component::Content);
+        m_content = components.at(component::Content);
       }
       else
       {
-	throw std::invalid_argument("Content is a required component for a non-hierarchical URI, even an empty string.");
+        throw std::invalid_argument("Content is a required component for a non-hierarchical URI, even an empty string.");
       }
     }
 
@@ -147,7 +269,7 @@ public:
     {
       m_fragment = components.at(component::Fragment);
     } 
-  }    
+  } 
 
   uri(uri const &other, std::map<component, std::string> const &replacements) :
     m_category(other.m_category),
@@ -159,24 +281,24 @@ public:
     if (m_category == scheme_category::Hierarchical)
     {
       m_username = (replacements.count(component::Username))
-	? replacements.at(component::Username) : other.m_username;
+        ? replacements.at(component::Username) : other.m_username;
 
       m_password = (replacements.count(component::Password))
-	? replacements.at(component::Password) : other.m_password;
+        ? replacements.at(component::Password) : other.m_password;
 
       m_host = (replacements.count(component::Host))
-	? replacements.at(component::Host) : other.m_host;
+        ? replacements.at(component::Host) : other.m_host;
 
       m_port = (replacements.count(component::Port))
-	? std::stoul(replacements.at(component::Port)) : other.m_port;
+        ? std::stoul(replacements.at(component::Port)) : other.m_port;
 
       m_path = (replacements.count(component::Path))
-	? replacements.at(component::Path) : other.m_path;
+        ? replacements.at(component::Path) : other.m_path;
     }
     else
     {
       m_content = (replacements.count(component::Content))
-	? replacements.at(component::Content) : other.m_content;
+        ? replacements.at(component::Content) : other.m_content;
     }
 
     m_query = (replacements.count(component::Query))
@@ -378,11 +500,11 @@ private:
     std::string::const_iterator scheme_end = scheme_start;
     while ((scheme_end != uri_text.end()) && (*scheme_end != ':'))
     {
-      if (!(std::isalnum(*scheme_end) || (*scheme_end == '-')
+      if (!(isalnum(*scheme_end) || (*scheme_end == '-')
 	    || (*scheme_end == '+') || (*scheme_end == '.')))
       {
-	throw std::invalid_argument("Invalid character found in the scheme component. Supplied URI was: \""
-				    + uri_text + "\".");
+        throw std::invalid_argument("Invalid character found in the scheme component. Supplied URI was: \""
+          + uri_text + "\".");
       }
       ++scheme_end;
     }
@@ -390,7 +512,7 @@ private:
     if (scheme_end == uri_text.end())
     {
       throw std::invalid_argument("End of URI found while parsing the scheme. Supplied URI was: \""
-				  + uri_text + "\".");
+        + uri_text + "\".");
     }
 
     if (scheme_start == scheme_end)
@@ -548,7 +670,7 @@ private:
     std::string::const_iterator port_end = port_start;
     while ((port_end != content.end()) && (*port_end != '/'))
     {
-      if (!std::isdigit(*port_end))
+      if (!isdigit(*port_end))
       {
 	throw std::invalid_argument("Invalid character while parsing the port. "
 				    "Supplied URI was: \"" + uri_text + "\".");

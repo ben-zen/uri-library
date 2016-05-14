@@ -1,5 +1,14 @@
-# ignore output and backups
+# Rules for ignoring backups and editor artifacts
 \#*\#
 .\#*
 *~
+
+# VSCode artifacts
+.browse.VC.db
+
+# Rules for ignoring POSIX build artifacts
 *.out
+
+# Rules for ignoring Windows build artifacts
+*.exe
+*.obj

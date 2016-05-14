@@ -11,6 +11,33 @@ void test_call(bool succeeded, char const *what)
   std::cout << (succeeded ? "PASSED: " : "FAILED: ") << what << std::endl << std::endl;
 }
 
+// Tests for host class
+namespace host_tests
+{
+  void construct_with_registered_name()
+  {
+    host rn_host("example.com", host::format::RegisteredName);
+    test_call((rn_host.get_format() == host::format::RegisteredName),
+              "Checking that returned format was `format::RegisteredName`");
+    test_call((rn_host.to_string() == "example.com"),
+              "Checking that returned hostname matched supplied hostname.");
+  }
+  
+  void construct_with_ip_v4_address()
+  {
+    host ipv4_host("127.0.0.1", host::format::InternetProtocolv4Address);
+    test_call((ipv4_host.to_string() == "127.0.0.1"),
+              "Checking that returned hostname matched supplied hostname.");
+  }
+  
+  void run_host_tests()
+  {
+    std::cout << "Running tests for the `host` class.\n" << std::endl;
+    construct_with_registered_name();
+    construct_with_ip_v4_address();
+  }
+};
+
 void test_scheme()
 {
   std::string bad_scheme("http");
@@ -66,6 +93,8 @@ void test_scheme()
 int main()
 {
   std::cout << "Running the URI library test suite ..." << std::endl << std::endl;
+  
+  host_tests::run_host_tests();
   
   test_scheme();
 
