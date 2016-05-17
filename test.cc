@@ -16,6 +16,9 @@ namespace host_tests
 {
   void construct_with_registered_name()
   {
+    std::cout << "Testing constructing host objects with Registered Names."
+              << std::endl << std::endl;
+
     host rn_host("example.com", host::format::RegisteredName);
     test_call((rn_host.get_format() == host::format::RegisteredName),
               "Checking that returned format was `format::RegisteredName`");
@@ -25,9 +28,78 @@ namespace host_tests
   
   void construct_with_ip_v4_address()
   {
+    std::cout << "Testing constructing host objects with IPv4 addresses."
+              << std::endl << std::endl;
+    
     host ipv4_host("127.0.0.1", host::format::InternetProtocolv4Address);
     test_call((ipv4_host.to_string() == "127.0.0.1"),
               "Checking that returned hostname matched supplied hostname.");
+              
+    try
+    {
+      host non_ipv4_host("abc", host::format::InternetProtocolv4Address);
+    }
+    catch (std::invalid_argument iae)
+    {
+      std::cout << "Caught expected failure for passing a string that is not an IPv4 address:"
+                << std::endl
+                << iae.what()
+                << std::endl
+                << std::endl;
+    }
+    
+    try
+    {
+      host non_ipv4_host("123.45.67.256", host::format::InternetProtocolv4Address);
+    }
+    catch (std::invalid_argument iae)
+    {
+      std::cout << "Caught expected failure for passing a string that is not an IPv4 address:"
+                << std::endl
+                << iae.what()
+                << std::endl
+                << std::endl;
+    } 
+  }
+  
+  void construct_with_ip_v6_address()
+  {
+    std::cout << "Testing constructing host objects with IPv6 addresses."
+              << std::endl << std::endl;
+              
+    host ipv6_host("::1", host::format::InternetProtocolLiteral);
+    test_call((ipv6_host.to_string() == "::1"),
+              "Checking that the returned hostname matched the supplied hostname.");
+
+    try
+    {
+      host bad_ipv6_host("2004::FEG1", host::format::InternetProtocolLiteral);
+      std::cout << "Failed to catch expected failure for non-hexadecimal characters."
+                << std::endl << std::endl;
+    }
+    catch (std::invalid_argument iae)
+    {
+      std::cout << "Caught expected failure for passing a string that is an invalid IPv6 address:"
+                << std::endl
+                << iae.what()
+                << std::endl
+                << std::endl;
+    }
+    
+    try
+    {
+      host bad_ipv6_host("2004:FE12::A::3", host::format::InternetProtocolLiteral);
+      std::cout << "Failed to catch expected failure for too many omitted stanzas."
+                << std::endl << std::endl;
+    }
+    catch (std::invalid_argument iae)
+    {
+      std::cout << "Caught expected failure for passing a string that is an invalid IPv6 address:"
+                << std::endl
+                << iae.what()
+                << std::endl
+                << std::endl;
+    }
   }
   
   void run_host_tests()
@@ -35,6 +107,7 @@ namespace host_tests
     std::cout << "Running tests for the `host` class.\n" << std::endl;
     construct_with_registered_name();
     construct_with_ip_v4_address();
+    construct_with_ip_v6_address();
   }
 };
 

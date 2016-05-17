@@ -8,6 +8,7 @@
 #include <string>
 #include <stdexcept>
 #include <utility>
+#include <vector>
 
 class host
 {
@@ -34,7 +35,8 @@ public:
     case format::InternetProtocolv4Address:
       parse_ipv4_address(std::string(host_address));
       break;
-    case format::InternetProtocolLiteral:    
+    case format::InternetProtocolLiteral:
+      parse_ipv6_address(std::string(host_address));  
       break;
     }
   }
@@ -67,6 +69,20 @@ public:
   
 private:
 
+  std::string format_ipv4_address()
+  {
+    if (m_stored_format != format::InternetProtocolv4Address)
+    {
+      throw std::domain_error("format_ipv4_address should only be called for IPv4 hosts.");
+    }
+    
+    std::string result = std::to_string(m_ipv4_address[0]) + "."
+                         + std::to_string(m_ipv4_address[1]) + "."
+                         + std::to_string(m_ipv4_address[2]) + "."
+                         + std::to_string(m_ipv4_address[3]);
+    return result;
+  }
+
   void parse_ipv4_address(std::string const &address)
   {
     // An IPv4 address is in the form `xxx.xxx.xxx.xxx`, where each stanza is
@@ -92,13 +108,15 @@ private:
     {
       if (ipv4_stanzas == iter_end)
       {
-        throw std::logic_error("Unexpected end of IPv4 address found while parsing address"
+        throw std::logic_error("Unexpected end of IPv4 address found while parsing address: "
                                + address);
       }
       int stanza = std::stoi((*ipv4_stanzas).str());
       if (stanza > 255)
       {
-        throw std::invalid_argument("Supplied string is not an IPv4 address" + address);
+        throw std::invalid_argument("Supplied string is not an IPv4 address: " + address
+                                    + "\n" + "The stanza \"" + (*ipv4_stanzas).str()
+                                    + "\" does not fit in a byte.");
       }
       else
       {
@@ -108,19 +126,53 @@ private:
       ipv4_stanzas++;
     }
   }
-
-  std::string format_ipv4_address()
+  
+  void parse_ipv6_address(std::string const &address)
   {
-    if (m_stored_format != format::InternetProtocolv4Address)
+    // Note that this format stage simply confirms that the address consists
+    // only stanzas of 0-4 hexadecimal digits divided by colons, and there
+    // are no other characters present. Actual comprehension of the address
+    // is left to a later stage.
+    std::regex ipv6_address_rough_format("[0-9A-Fa-f]{0,4}:([0-9A-Fa-f]{0,4}:){1,6}[0-9A-Fa-f]{0,4}");
+    if (!std::regex_match(address, ipv6_address_rough_format))
     {
-      throw std::domain_error("format_ipv4_address should only be called for IPv4 hosts.");
+      throw std::invalid_argument("Supplied hostname is not an IPv6 address. Supplied address was \""
+      + address + "\".");
     }
     
-    std::string result = std::to_string(m_ipv4_address[0]) + "."
-                         + std::to_string(m_ipv4_address[1]) + "."
-                         + std::to_string(m_ipv4_address[2]) + "."
-                         + std::to_string(m_ipv4_address[3]);
-    return result;
+    // Now we know the address is roughly in the right form. At this point we
+    // can start considering how to parse each individual component.
+    
+    class ipv6_parser
+    {
+      // host::parse_ipv6_address::ipv6_parser::stanza_type::address_piece
+      enum class stanza_type
+      {
+        address_piece,
+        elision
+      };
+ 
+      // if format is stanza_type::elision, address_piece will be 0.
+      struct parse_object
+      {
+        stanza_type format;
+        unsigned short address_piece;
+      };
+      
+    public:
+      static void parse_address(std::string const &address)
+      {
+        std::vector<parse_object> components;
+        // Take an iterator to the start of the address, then iterate through
+        // the string, finding the end of each stanza (or finding an elision).
+        std::string::const_iterator cursor = address.begin();
+        while (cursor != address.end())
+        {
+          cursor++;
+        }
+        // To fill the structure, you can iterate over the vector; when an
+      }
+    };
   }
 
   format m_stored_format;
