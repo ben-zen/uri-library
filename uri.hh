@@ -1,4 +1,4 @@
-// Copyright (C) 2015 Ben Lewis <benjf5+github@gmail.com>
+// Copyright (C) 2015-2016 Ben Lewis <benjf5+github@gmail.com>
 // Licensed under the MIT license.
 
 #pragma once
@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include <utility>
 #include <vector>
+#include <iostream>
 
 class host
 {
@@ -143,36 +144,97 @@ private:
     // Now we know the address is roughly in the right form. At this point we
     // can start considering how to parse each individual component.
     
-    class ipv6_parser
+    enum class stanza_type
     {
-      // host::parse_ipv6_address::ipv6_parser::stanza_type::address_piece
-      enum class stanza_type
-      {
-        address_piece,
-        elision
-      };
+      address_piece,
+      elision
+    };
  
-      // if format is stanza_type::elision, address_piece will be 0.
-      struct parse_object
-      {
-        stanza_type format;
-        unsigned short address_piece;
-      };
+    // if format is stanza_type::elision, address_piece will be 0.
+    struct parse_object
+    {
+      stanza_type format;
+      unsigned short address_piece;
+    };
       
-    public:
-      static void parse_address(std::string const &address)
+
+    std::vector<parse_object> components;
+    // Take an iterator to the start of the address, then iterate through
+    // the string, finding the end of each stanza (or finding an elision).
+    std::string::const_iterator cursor = address.begin();
+    while (cursor != address.end())
+    {
+      if (*cursor == ':')
       {
-        std::vector<parse_object> components;
-        // Take an iterator to the start of the address, then iterate through
-        // the string, finding the end of each stanza (or finding an elision).
-        std::string::const_iterator cursor = address.begin();
-        while (cursor != address.end())
+        cursor++;
+        if ((cursor != address.end()) && (*cursor == ':'))
         {
+          parse_object component = {};
+          component.format = stanza_type::elision;
+          components.push_back(component);
           cursor++;
         }
-        // To fill the structure, you can iterate over the vector; when an
       }
-    };
+      else
+      {
+        // Some character that is not a colon, at most four. Build a lookahead
+        // cursor, grab characters that are alphanumeric, and then parse an int
+        // that's 16 bits at most. If it's more, it's not valid and throw an
+        // exception. You can also check that a character is a hexadecimal 
+        // digit here.
+            
+        std::string piece;
+        int index = 0;
+        while ((index < 4) && (cursor != address.end()) && (*cursor != ':'))
+        {
+          if (!std::isxdigit(*cursor))
+          {
+            throw std::invalid_argument("Non-hexadecimal character encountered in parsing."
+                                        "\nThe provided string was: \"" + address
+                                        + "\".");
+          }
+              
+          piece.push_back(*cursor);
+          index++;
+          cursor++;
+        }
+            
+        if ((index == 4) && (cursor != address.end()) && (*cursor != ':'))
+        {
+          throw std::invalid_argument("Non-hexadecimal character encountered in parsing."
+                                      "\nThe provided string was: \"" + address
+                                      + "\".");
+        }
+            
+        int parsed_piece = std::stoi(piece, nullptr, 16);
+        if (parsed_piece > 0xFFFF)
+        {
+          throw std::domain_error("Attempted to cast a value larger than "
+                                  "an unsigned short to an unsigned short.");
+        }
+  
+        parse_object component = {};
+        component.format = stanza_type::address_piece;
+        component.address_piece = static_cast<unsigned short>(parsed_piece);
+        components.push_back(component);
+      }
+    }
+        
+    bool after_elision = false;
+    int stanza_index = 0;
+    for (auto iter = components.begin(); iter != components.end(); iter++)
+    {
+      if (iter->format == stanza_type::elision)
+      {
+        if (after_elision)
+        {
+          throw std::invalid_argument("More than one elision encountered while parsing "
+                                      "this IPv6 address: \"" + address + "\".");
+        }
+          
+        after_elision = true;
+      }
+    }
   }
 
   format m_stored_format;

@@ -1,4 +1,4 @@
-// Copyright (C) 2015 Ben Lewis <benjf5+github@gmail.com>
+// Copyright (C) 2015-2016 Ben Lewis <benjf5+github@gmail.com>
 // Licensed under the MIT license.
 
 #include "uri.hh"
@@ -66,10 +66,31 @@ namespace host_tests
   {
     std::cout << "Testing constructing host objects with IPv6 addresses."
               << std::endl << std::endl;
-              
+    
+    std::cout << "Building a localhost (::1) IPv6 host." << std::endl;
     host ipv6_host("::1", host::format::InternetProtocolLiteral);
     test_call((ipv6_host.to_string() == "::1"),
               "Checking that the returned hostname matched the supplied hostname.");
+    
+    std::cout << "Building a null-host (::) IPv6 host." << std::endl;
+    host null_host("::", host::format::InternetProtocolLiteral);
+    test_call((null_host.to_string() == "::"),
+              "Checking that the returned hostname matched the supplied hostname.");
+
+    try
+    {
+      host bad_null_host("::::", host::format::InternetProtocolLiteral);
+      std::cout << "Failed to catch expected failure for too many elisions while "
+                << "parsing IPv6 address." << std::endl << std::endl;
+    }
+    catch (std::invalid_argument iae)
+    {
+      std::cout << "Caught expected failure for too many elisions while "
+                << "parsing an IPv6 address:"
+                << iae.what()
+                << std::endl
+                << std::endl;
+    }
 
     try
     {
