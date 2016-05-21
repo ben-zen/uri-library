@@ -6,8 +6,10 @@
 # VSCode artifacts
 .browse.VC.db
 
-# Rules for ignoring POSIX build artifacts
+# Rules for ignoring POSIX build artifacts, including the suggested name of the
+# test binary for POSIX systems.
 *.out
+uri_test
 
 # Rules for ignoring Windows build artifacts
 *.exe

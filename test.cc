@@ -69,6 +69,8 @@ namespace host_tests
     
     std::cout << "Building a localhost (::1) IPv6 host." << std::endl;
     host ipv6_host("::1", host::format::InternetProtocolLiteral);
+    std::cout << "to_string result for this host:" << std::endl
+              << ipv6_host.to_string() << std::endl;
     test_call((ipv6_host.to_string() == "::1"),
               "Checking that the returned hostname matched the supplied hostname.");
     
@@ -87,6 +89,21 @@ namespace host_tests
     {
       std::cout << "Caught expected failure for too many elisions while "
                 << "parsing an IPv6 address:"
+                << iae.what()
+                << std::endl
+                << std::endl;
+    }
+
+    try
+    {
+      host missing_first_stanza(":abc::1", host::format::InternetProtocolLiteral);
+      std::cout << "Failed to catch expected failure for missing first stanza." 
+                << std::endl << std::endl;
+    }
+    catch (std::invalid_argument iae)
+    {
+      std::cout << "Caught expected failure for missing first stanza:"
+                << std::endl
                 << iae.what()
                 << std::endl
                 << std::endl;

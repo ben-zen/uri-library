@@ -10,6 +10,7 @@
 #include <utility>
 #include <vector>
 #include <iostream>
+#include <cstdio>
 
 class host
 {
@@ -63,6 +64,7 @@ public:
       formatted_name = format_ipv4_address();
       break;
     case format::InternetProtocolLiteral:
+      formatted_name = format_ipv6_address();
       break;
     }
     return formatted_name;
@@ -84,6 +86,31 @@ private:
     return result;
   }
 
+  std::string format_ipv6_address()
+  {
+    if (m_stored_format != format::InternetProtocolLiteral)
+    {
+      throw std::domain_error("format_ipv6_address should only be called for IPv6 hosts.");
+    }
+
+    std::string result;
+    for (size_t iter = 0; iter < 8; iter++)
+    {
+      char stanza_buffer[5] = {};
+      // Consider error handling on this, but I'm not expecting to see too many
+      // issues with this, the input is already heavily filtered.
+      std::snprintf(stanza_buffer, 5, "%hx", m_ipv6_address[iter]);
+      result.append(stanza_buffer);
+
+      if (iter < 7)
+      {
+        result.push_back(':');
+      }
+    }
+
+    return result;
+  }
+      
   void parse_ipv4_address(std::string const &address)
   {
     // An IPv4 address is in the form `xxx.xxx.xxx.xxx`, where each stanza is
@@ -167,12 +194,25 @@ private:
       if (*cursor == ':')
       {
         cursor++;
-        if ((cursor != address.end()) && (*cursor == ':'))
+        if (cursor != address.end())
         {
-          parse_object component = {};
-          component.format = stanza_type::elision;
-          components.push_back(component);
-          cursor++;
+          if (*cursor == ':')
+          {
+            parse_object component = {};
+            component.format = stanza_type::elision;
+            components.push_back(component);
+            cursor++;
+          }
+          else if (components.empty())
+          {
+            throw std::invalid_argument("Missing first stanza in address: \""
+                                        + address + "\".");
+          }
+        }
+        else
+        {
+          throw std::invalid_argument("Unexpected end of address found while "
+                                      "parsing: \"" + address + "\".");
         }
       }
       else
@@ -224,6 +264,12 @@ private:
     int stanza_index = 0;
     for (auto iter = components.begin(); iter != components.end(); iter++)
     {
+      if (stanza_index > 7)
+      {
+        throw std::logic_error("Attempting to write to a stanza outside an IPv6"
+                               " address.");
+      }
+
       if (iter->format == stanza_type::elision)
       {
         if (after_elision)
@@ -231,16 +277,25 @@ private:
           throw std::invalid_argument("More than one elision encountered while parsing "
                                       "this IPv6 address: \"" + address + "\".");
         }
-          
+
+        // This line is a little odd, but the effect is basically to move the
+        // index to where we'd end the elision, and then at the end of the loop
+        // we're going to move ahead another index and exit the loop.
+        stanza_index = 8 - (components.end() - iter);
         after_elision = true;
       }
+      else
+      {
+        m_ipv6_address[stanza_index] = iter->address_piece;
+      }
+      stanza_index++;
     }
   }
 
   format m_stored_format;
   std::string    m_registered_name;
-  unsigned char  m_ipv4_address[4];
-  unsigned short m_ipv6_address[8];
+  unsigned char  m_ipv4_address[4] = {};
+  unsigned short m_ipv6_address[8] = {};
 };
 
 class uri
