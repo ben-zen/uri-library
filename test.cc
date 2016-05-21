@@ -126,6 +126,18 @@ int main()
             << abnormal_path_uri.get_path()
             << std::endl << std::endl;
 
+  uri query_test("http://a/b/?c=1&d=2");
+  std::cout << "Checking the query map for a basic test URI." << std::endl;
+  auto query_dict = query_test.get_query_dictionary();
+  test_call((query_dict["c"] == "1"), "Testing for a value in the query dictionary.");
+  test_call((query_dict["d"] == "2"), "Testing for a value in the query dictionary.");
+  
+  uri query_test_semicolon("http://a/b/?c=1;d=2", uri::scheme_category::Hierarchical, 
+                           uri::query_argument_separator::semicolon);
+  std::cout << "Checking the query map for a basic test URI that uses semicolons." << std::endl;
+  test_call((query_dict["c"] == "1"), "Testing for a value in the query dictionary.");
+  test_call((query_dict["d"] == "2"), "Testing for a value in the query dictionary.");
+
   // Testing a non-hierarchical URI:
   uri data_uri("data:text/html,<!DOCTYPE html><html><head><title>test</title></head><body><h1>testing</h1><p>Test.</p></body></html>",
                uri::scheme_category::NonHierarchical);

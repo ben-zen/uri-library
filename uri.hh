@@ -2,6 +2,7 @@
 // Licensed under the MIT license.
 
 #pragma once
+#include <cctype>
 #include <map>
 #include <string>
 #include <stdexcept>
@@ -15,11 +16,9 @@ class uri
    * characters followed by a colon, and they all may optionally have a query
    * component preceded by a question mark, and a fragment component preceded by
    * an octothorpe (hash mark: '#'). The query consists of stanzas separated by
-   * ampersands ('&'), and each stanza consists of a key and an optional value;
-   * if the value exists, the key and value must be divided by an equals
-   * sign. CGI applications are encouraged to also support semicolons as
-   * dividers in their query strings, this library currently does not support
-   * the use of semicolons.
+   * either ampersands ('&') or semicolons (';') (but only one or the other),
+   * and each stanza consists of a key and an optional value; if the value
+   * exists, the key and value must be divided by an equals sign.
    *
    * The following is an example from Wikipedia of a hierarchical URI:
    * scheme:[//[user:password@]domain[:port]][/]path[?query][#fragment]
@@ -45,26 +44,40 @@ public:
     Query,
     Fragment
   };
+  
+  enum class query_argument_separator
+  {
+    ampersand,
+    semicolon
+  };
 
-  uri(char const *uri_text, scheme_category category = scheme_category::Hierarchical) :
+  uri(char const *uri_text, scheme_category category = scheme_category::Hierarchical,
+      query_argument_separator separator = query_argument_separator::ampersand) :
     m_category(category),
     m_path_is_rooted(false),
-    m_port(0)
+    m_port(0),
+    m_separator(separator)
   {
     setup(std::string(uri_text), category);
   };
 
-  uri(std::string const &uri_text, scheme_category category = scheme_category::Hierarchical) : 
+  uri(std::string const &uri_text, scheme_category category = scheme_category::Hierarchical,
+      query_argument_separator separator = query_argument_separator::ampersand) : 
     m_category(category),
     m_path_is_rooted(false),
-    m_port(0)
+    m_port(0),
+    m_separator(separator)
   {
     setup(uri_text, category);
   };
 
-  uri(std::map<component, std::string> const &components, scheme_category category, bool rooted_path) :
+  uri(std::map<component, std::string> const &components,
+      scheme_category category,
+      bool rooted_path,
+      query_argument_separator separator = query_argument_separator::ampersand) :
     m_category(category),
-    m_path_is_rooted(rooted_path)
+    m_path_is_rooted(rooted_path),
+    m_separator(separator)
   {
     if (components.count(component::Scheme))
     {
@@ -151,7 +164,8 @@ public:
 
   uri(uri const &other, std::map<component, std::string> const &replacements) :
     m_category(other.m_category),
-    m_path_is_rooted(other.m_path_is_rooted)
+    m_path_is_rooted(other.m_path_is_rooted),
+    m_separator(other.m_separator)
   {
     m_scheme = (replacements.count(component::Scheme))
       ? replacements.at(component::Scheme) : other.m_scheme;
@@ -209,6 +223,7 @@ public:
       m_category = other.m_category;
       m_port = other.m_port;
       m_path_is_rooted = other.m_path_is_rooted;
+      m_separator = other.m_separator;
     }
     return *this;
   }
@@ -589,8 +604,9 @@ private:
       // Loop over the query string looking for '&'s, then check each one for
       // an '=' to find keys and values; if there's not an '=' then the key
       // will have an empty value in the map.
+      char separator = (m_separator == query_argument_separator::ampersand) ? '&' : ';';
       size_t carat = 0;
-      size_t stanza_end = m_query.find_first_of('&');
+      size_t stanza_end = m_query.find_first_of(separator);
       do
       {
 	std::string stanza = m_query.substr(carat, ((stanza_end != std::string::npos) ? (stanza_end - carat) : std::string::npos));
@@ -610,7 +626,7 @@ private:
 	m_query_dict.emplace(key, value);
 	carat = ((stanza_end != std::string::npos) ? (stanza_end + 1)
 		 : std::string::npos);
-	stanza_end = m_query.find_first_of('&', carat);
+	stanza_end = m_query.find_first_of(separator, carat);
       }
       while ((stanza_end != std::string::npos) 
 	     || (carat != std::string::npos));
@@ -631,4 +647,5 @@ private:
   scheme_category m_category;
   unsigned long m_port;
   bool m_path_is_rooted;
+  query_argument_separator m_separator;
 };

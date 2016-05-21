@@ -17,9 +17,11 @@ component of a hierarchical URI is invalid and will likewise throw a
 
 ### Constructors ###
 * `uri(char const *uri_text, scheme_category category =
-  scheme_category::Hierarchical)` and `uri(std::string const &uri_text,
-  scheme_category category = scheme_category::Hierarchical)`: constructs
-  a `uri` object and throws an exception for any invalid component.
+  scheme_category::Hierarchical, query_argument_separator separator =
+  query_argument_separator::ampersand)` and `uri(std::string const &uri_text,
+  scheme_category category = scheme_category::Hierarchical,
+  query_argument_separator separator = query_argument_separator::ampersand)`:
+  constructs a `uri` object and throws an exception for any invalid component.
 * `uri(uri const &other)` and `uri &operator=(uri const &other)`: copy
   constructor and copy assignment operator. Creates a duplicate of the supplied
   uri.
@@ -29,10 +31,11 @@ component of a hierarchical URI is invalid and will likewise throw a
   rooted or not, and it cannot change from a hierarchical URI to a
   non-hierarchical URI.
 * `uri(std::map<component, std::string> const &components, scheme_category
-  category, bool rooted_path)`: Constructs a new URI from the components given.
-  Note that currently it is possible to build very invalid URIs with this setup,
-  as no validation is performed (as of right now.) This constructor is a wee bit
-  experimental.
+  category, bool rooted_path, query_argument_separator separator =
+  query_argument_separator::ampersand)`: Constructs a new URI from the
+  components given. Note that currently it is possible to build very invalid
+  URIs with this setup, as no validation is performed (as of right now.) This
+  constructor is a wee bit experimental.
 
 ### Accessors ###
 * `std::string const &get_scheme() const`: get the scheme component.
@@ -62,11 +65,10 @@ component of a hierarchical URI is invalid and will likewise throw a
 * `std::string const &get_query() const`: get the query component of the URI, as
   a string. Returns an empty string if no query was supplied.
 * `std::map<std::string, std::string> const &get_query_dictionary() const`: get
-  the parsed contents of the query component, as a key-value
-  dictionary. Currently this library only supports query strings with ampersands
-  (`&`) as dividers, future versions may support semicolons. This dictionary
-  will most likely be invalid for query strings using semicolons and should be
-  ignored in that scenario.
+  the parsed contents of the query component, as a key-value dictionary. This
+  operation uses the separator declared at the creation of the URI, which as a
+  default uses an ampersand. If your URI uses semicolons to separate arguments,
+  set the optional arguments in the constructor.
 * `std::string const &get_fragment() const`: get the fragment component of the
   URI. Returns an empty string if no fragment was supplied.
 * `std::string to_string() const`: get the normalized form of the URI; any
@@ -82,14 +84,23 @@ component of a hierarchical URI is invalid and will likewise throw a
 ## Building tests ##
 This library comes with a basic set of tests, which (as of this writing) mostly
 confirm that a few example URIs work well, and should confirm the operation of
-the library for various cases. Instructions for building and running the tests
-with GCC:
+the library for various cases.
+
+### ... with GCC or Clang++ ###
+With GCC or Clang++, the instructions are fairly straightforward; run the
+following in this directory, substituting `clang++` for `g++` (assuming your
+installation has C++11 support):
 
     g++ -std=c++11 test.cc -o uri_test
     ./uri_test
 
-(You can substitute `clang++` when your clang installation includes C++11
-support. I haven't tested with MSVC yet.)
+### ... with MSVC 2015 or newer ###
+With MSVC, note that I have only tested with 2015, and I expect later versions
+will be similar. Using the developer command prompt, navigate to this directory
+and run the following:
+
+    cl.exe test.cc
+    .\test.exe
 
 ## Current issues ##
 The map-based instantiation is very weak currently, as it does absolutely no
@@ -109,7 +120,11 @@ well as-is, no further extensions seem necessary in that direction.
 
 Once C++14 support is more widespread (or I can find an appropriate value to
 check for, `get_username()` and `get_password()` will be marked as
-`\[[deprecated]]`, in order to appropriately warn on their use. Please heed this
+`[[deprecated]]`, in order to appropriately warn on their use. Please heed this
 warning, and don't use `get_username()` or `get_password()`, they're horribly
 unsafe and only included for completeness. At some point in the future, calling
 them may result in an exception being thrown at runtime.
+
+As an optional future task, I might consider supporting sniffing query argument
+separators from context; I'm not too interested in that right now, however,
+since guessing as a parser is generally a good excuse to create a bug farm.
