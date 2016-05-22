@@ -93,6 +93,52 @@ private:
       throw std::domain_error("format_ipv6_address should only be called for IPv6 hosts.");
     }
 
+    enum class stanza_format
+    {
+      elision,
+      printed_block
+    };
+    
+    struct formatted_stanza
+    {
+      stanza_format format;
+      union
+      {
+        unsigned short elided_stanzas;
+        char stanza_buffer[5];
+      };
+    };
+
+    size_t longest_elision = 0;
+    std::vector<formatted_stanza> stanzas;
+    // Format each stanza or find an elision, then iterate over the list again
+    // to merge it into one string.
+    for (size_t iter = 0; iter < 8; iter++)
+    {
+      if (m_ipv6_address[iter] == 0)
+      {
+        if (stanzas.empty() || (stanzas.back().format != stanza_format::elision))
+        {
+          formatted_stanza new_stanza = {};
+          new_stanza.format = stanza_format::elision;
+          stanzas.push_back(new_stanza);
+        }
+        formatted_stanza &elision_stanza = stanzas.back();
+        elision_stanza.elided_stanzas++;
+        if (elision_stanza.elided_stanzas > longest_elision)
+        {
+          longest_elision = elision_stanza.elided_stanzas;
+        }
+      }
+      else
+      {
+        formatted_stanza new_stanza = {};
+        new_stanza.format = stanza_format::printed_block;
+        std::snprintf(new_stanza.stanza_buffer, 5, "%hx", m_ipv6_address[iter]);
+        stanzas.push_back(new_stanza);
+      }
+    }
+    
     std::string result;
     for (size_t iter = 0; iter < 8; iter++)
     {
