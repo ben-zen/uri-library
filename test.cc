@@ -219,9 +219,9 @@ int main()
   test_scheme();
 
   uri test(std::string("http://www.example.com/test?query#fragment"));
-  std::cout << test.get_host() << std::endl;
+  std::cout << test.get_host().to_string() << std::endl;
 
-  test_call((test.get_host() == "www.example.com"), "host");
+  test_call((test.get_host().to_string() == "www.example.com"), "host");
   test_call((test.get_path() == "test"), "path");
   std::cout << test.get_path() << std::endl;
   test_call((test.get_query() == "query"), "query");
@@ -231,7 +231,7 @@ int main()
 
   std::cout << "Testing IPv6 support." << std::endl;
   uri ipv6_test("http://[::1]:8080/");
-  std::cout << ipv6_test.get_host() << std::endl;
+  std::cout << ipv6_test.get_host().to_string() << std::endl;
   std::cout << ipv6_test.get_port() << std::endl << std::endl;
 
   uri no_path_test("http://www.example.com:8080/");

@@ -21,10 +21,15 @@ class host
 public:
   enum class format
   {
+    Empty,
     RegisteredName,
     InternetProtocolv4Address,
     InternetProtocolLiteral
   };
+
+  host() : m_stored_format(format::Empty)
+  {
+  }
   
   host(char const *host_address, format host_format)
   {
@@ -40,19 +45,86 @@ public:
     case format::InternetProtocolLiteral:
       parse_ipv6_address(std::string(host_address));  
       break;
+    case format::Empty:
+      break;
     }
   }
-  
+
+  host (std::string const &host_address)
+  {
+    if (host_address.size() > 0)
+    {
+      if (host_address.find_first_of(':') != std::string::npos)
+      {
+        m_stored_format = format::InternetProtocolLiteral;
+        parse_ipv6_address(host_address);
+      }
+      else
+      {
+        std::regex ipv4_address_regex(ipv4_address_format);
+        if (std::regex_match(host_address, ipv4_address_regex))
+        {
+          m_stored_format = format::InternetProtocolv4Address;
+          parse_ipv4_address(host_address);
+        }
+        else
+        {
+          m_stored_format = format::RegisteredName;
+          m_registered_name = host_address;
+        }
+      }
+    }
+    else
+    {
+      m_stored_format = format::Empty;
+    }
+  }
+
+  // Use the assignment operator for copy constructor.
+  host(host const &other)
+  {
+    *this = other;
+  }
+
+  host &operator=(host const &other)
+  {
+    if (this != &other)
+    {
+      m_stored_format = other.m_stored_format;
+      switch (m_stored_format)
+      {
+      case format::RegisteredName:
+        m_registered_name = other.m_registered_name;
+        break;
+      case format::InternetProtocolv4Address:
+        for (int i = 0; i < 4; i++)
+        {
+          m_ipv4_address[i] = other.m_ipv4_address[i];
+        }
+        break;
+      case format::InternetProtocolLiteral:
+        for (int i = 0; i < 8; i++)
+        {
+          m_ipv6_address[i] = other.m_ipv6_address[i];
+        }
+        break;
+      case format::Empty:
+        break;
+      }
+    }
+    return *this;
+  }
+
   ~host()
   {
   }
   
-  format get_format()
+  format get_format() const
   {
     return m_stored_format;
   };
   
-  std::string to_string()
+  std::string to_string() const
   {
     std::string formatted_name;
     switch (m_stored_format)
@@ -66,13 +138,15 @@ public:
     case format::InternetProtocolLiteral:
       formatted_name = format_ipv6_address();
       break;
+    case format::Empty:
+      break;
     }
     return formatted_name;
   };
   
 private:
 
-  std::string format_ipv4_address()
+  std::string format_ipv4_address() const
   {
     if (m_stored_format != format::InternetProtocolv4Address)
     {
@@ -86,7 +160,7 @@ private:
     return result;
   }
 
-  std::string format_ipv6_address()
+  std::string format_ipv6_address() const
   {
     if (m_stored_format != format::InternetProtocolLiteral)
     {
@@ -196,8 +270,8 @@ private:
     
     // There is a shorter form of this, but for the moment I'll let it slide as
     // a first pass.
-    std::regex ipv4_address_format("[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}");
-    if (!std::regex_match(address, ipv4_address_format))
+    std::regex ipv4_address_regex(ipv4_address_format);
+    if (!std::regex_match(address, ipv4_address_regex))
     {
       throw std::invalid_argument("Supplied host name is not an IPv4 address. Supplied address was \""
                                   + address + "\".");
@@ -370,6 +444,7 @@ private:
     }
   }
 
+  char const * const ipv4_address_format = "[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}";
   format m_stored_format;
   std::string    m_registered_name;
   unsigned char  m_ipv4_address[4] = {};
@@ -469,7 +544,7 @@ public:
 
       if (components.count(component::Host))
       {
-        m_host = components.at(component::Host);
+        m_host = host(components.at(component::Host));
       }
 
       if (components.count(component::Port))
@@ -533,8 +608,14 @@ public:
       m_password = (replacements.count(component::Password))
         ? replacements.at(component::Password) : other.m_password;
 
-      m_host = (replacements.count(component::Host))
-        ? replacements.at(component::Host) : other.m_host;
+      if (replacements.count(component::Host))
+      {
+        m_host = host(replacements.at(component::Host));
+      }
+      else
+      {
+        m_host = other.m_host;
+      }
 
       m_port = (replacements.count(component::Port))
         ? std::stoul(replacements.at(component::Port)) : other.m_port;
@@ -621,7 +702,7 @@ public:
     return m_password;
   };
   
-  std::string const &get_host() const
+  host const &get_host() const
   {
     if (m_category != scheme_category::Hierarchical)
     {
@@ -680,7 +761,19 @@ public:
         full_uri.append("@");
       }
 
-      full_uri.append(m_host);
+      bool is_ip_literal = m_host.get_format() == host::format::InternetProtocolLiteral;
+      if (is_ip_literal)
+      {
+        full_uri.push_back('[');
+      }
+
+      full_uri.append(m_host.to_string());
+
+      if (is_ip_literal)
+      {
+        full_uri.push_back(']');
+      }
+      
 
       if (m_port != 0)
       {
@@ -906,7 +999,13 @@ private:
       }
     }
 
-    m_host = std::move(std::string(host_start, host_end));
+    std::string host_string = std::move(std::string(host_start, host_end));
+    if ((host_string.size() > 0) && (host_string.front() == '['))
+    {
+      host_string.erase(0,1);
+      host_string.pop_back(); // The last character must be `]`.
+    }
+    m_host = host(host_string);
     return host_end;
   };
 
@@ -990,10 +1089,11 @@ private:
   std::string m_content;
   std::string m_username;
   std::string m_password;
-  std::string m_host;
   std::string m_path;
   std::string m_query;
   std::string m_fragment;
+
+  host m_host;
 
   std::map<std::string, std::string> m_query_dict;
 
