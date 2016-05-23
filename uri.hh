@@ -98,7 +98,7 @@ private:
       elision,
       printed_block
     };
-    
+
     struct formatted_stanza
     {
       stanza_format format;
@@ -123,6 +123,7 @@ private:
           new_stanza.format = stanza_format::elision;
           stanzas.push_back(new_stanza);
         }
+
         formatted_stanza &elision_stanza = stanzas.back();
         elision_stanza.elided_stanzas++;
         if (elision_stanza.elided_stanzas > longest_elision)
@@ -138,22 +139,53 @@ private:
         stanzas.push_back(new_stanza);
       }
     }
-    
-    std::string result;
-    for (size_t iter = 0; iter < 8; iter++)
-    {
-      char stanza_buffer[5] = {};
-      // Consider error handling on this, but I'm not expecting to see too many
-      // issues with this, the input is already heavily filtered.
-      std::snprintf(stanza_buffer, 5, "%hx", m_ipv6_address[iter]);
-      result.append(stanza_buffer);
 
-      if (iter < 7)
+    std::string result;
+    bool already_elided = false;
+    for (auto stanza = stanzas.begin(); stanza != stanzas.end(); stanza++)
+    {
+      if (stanza->format == stanza_format::elision)
       {
-        result.push_back(':');
+        if ((stanza->elided_stanzas == longest_elision) && !already_elided)
+        {
+          already_elided = true;
+          // Only put a colon in if there won't be one already.
+          if (stanza == stanzas.begin())
+          {
+            result.push_back(':');
+          }
+
+          result.push_back(':');
+        }
+        else
+        {
+          // Otherwise, we fill in the number of elided stanzas.
+          unsigned short stanza_count = stanza->elided_stanzas;
+          while (stanza_count > 0)
+          {
+            result.push_back('0');
+            stanza_count--;
+            if (stanza_count != 0)
+            {
+              result.push_back(':');
+            }
+          }
+
+          if ((stanza + 1) != stanzas.end())
+          {
+            result.push_back(':');
+          }
+        }
+      }
+      else
+      {
+        result.append(stanza->stanza_buffer);
+        if ((stanza + 1) != stanzas.end())
+        {
+          result.push_back(':');
+        }
       }
     }
-
     return result;
   }
       

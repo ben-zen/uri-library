@@ -66,7 +66,7 @@ namespace host_tests
   {
     std::cout << "Testing constructing host objects with IPv6 addresses."
               << std::endl << std::endl;
-    
+
     std::cout << "Building a localhost (::1) IPv6 host." << std::endl;
     host ipv6_host("::1", host::format::InternetProtocolLiteral);
     std::cout << "to_string result for this host:" << std::endl
@@ -79,6 +79,15 @@ namespace host_tests
     test_call((null_host.to_string() == "::"),
               "Checking that the returned hostname matched the supplied hostname.");
 
+    host test_odd_elision("2001::a:0:0:0:1", host::format::InternetProtocolLiteral);
+    std::cout << "For the host 2001::a:0:0:0:1, to_string produces: "
+              << test_odd_elision.to_string() << std::endl << std::endl;
+
+    host two_elided_blocks("2001:0:0:a:b::1", host::format::InternetProtocolLiteral);
+    std::cout << "For a host with two possible elided blocks of the same size, "
+              << "to_string produces: " << two_elided_blocks.to_string()
+              << std::endl << std::endl;
+    
     try
     {
       host bad_null_host("::::", host::format::InternetProtocolLiteral);
