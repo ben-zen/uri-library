@@ -450,12 +450,12 @@ private:
 
 	authority_cursor = parse_host(uri_text, m_content, authority_cursor);
 
-	if (*authority_cursor == ':')
+	if ((authority_cursor != m_content.end()) && (*authority_cursor == ':'))
 	{
 	  authority_cursor = parse_port(uri_text, m_content, (authority_cursor + 1));
 	}
 
-	if (*authority_cursor == '/')
+	if ((authority_cursor != m_content.end()) && (*authority_cursor == '/' ))
 	{
 	  // Then the path is rooted, and we should note this.
 	  m_path_is_rooted = true;
