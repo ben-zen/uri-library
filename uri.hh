@@ -461,6 +461,12 @@ private:
 	  m_path_is_rooted = true;
 	  path_start = authority_cursor + 1;
 	}
+	
+	// If we've reached the end and no path is present then set path_start
+        // to the end.
+        if (authority_cursor == m_content.end()) {
+          path_start = m_content.end();
+        }
       }
       else if (!m_content.compare(0, 1, "/"))
       {
