@@ -85,11 +85,15 @@ int main()
   std::cout << ipv6_test.get_host() << std::endl;
   std::cout << ipv6_test.get_port() << std::endl << std::endl;
 
-  uri no_path_test("http://www.example.com:8080/");
-  test_call((no_path_test.get_path() == ""), "empty path");
+  uri empty_path_test("http://www.example.com:8080/");
+  test_call((empty_path_test.get_path() == ""), "empty path");
+
+  uri no_path_test("http://www.example.com:8080");
+  test_call((no_path_test.get_path() == ""), "no path");
 
   std::cout << test.to_string() << std::endl;
 
+  std::cout << empty_path_test.to_string() << std::endl;
   std::cout << no_path_test.to_string() << std::endl;
 
   test.get_query_dictionary();
