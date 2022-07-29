@@ -54,8 +54,8 @@ public:
   uri(char const *uri_text, scheme_category category = scheme_category::Hierarchical,
       query_argument_separator separator = query_argument_separator::ampersand) :
     m_category(category),
-    m_path_is_rooted(false),
     m_port(0),
+    m_path_is_rooted(false),
     m_separator(separator)
   {
     setup(std::string(uri_text), category);
@@ -64,8 +64,8 @@ public:
   uri(std::string const &uri_text, scheme_category category = scheme_category::Hierarchical,
       query_argument_separator separator = query_argument_separator::ampersand) : 
     m_category(category),
-    m_path_is_rooted(false),
     m_port(0),
+    m_path_is_rooted(false),
     m_separator(separator)
   {
     setup(uri_text, category);
@@ -414,7 +414,7 @@ private:
 				  + uri_text + "\".");
     }
 
-    m_scheme = std::move(std::string(scheme_start, scheme_end));
+    m_scheme = std::string(scheme_start, scheme_end);
     return scheme_end;
   };
 
@@ -427,7 +427,7 @@ private:
       ++content_end;
     }
 
-    m_content = std::move(std::string(content_start, content_end));
+    m_content = std::string(content_start, content_end);
 
     if ((m_category == scheme_category::Hierarchical) && (m_content.length() > 0))
     {
@@ -476,7 +476,7 @@ private:
 
       // We can now build the path based on what remains in the content string,
       // since that's all that exists after the host and optional port component.
-      m_path = std::move(std::string(path_start, path_end));
+      m_path = std::string(path_start, path_end);
     }
     return content_end;
   };
@@ -497,7 +497,7 @@ private:
       }
       ++username_end;
     }
-    m_username = std::move(std::string(username_start, username_end));
+    m_username = std::string(username_start, username_end);
     return username_end;
   };
 
@@ -511,7 +511,7 @@ private:
       ++password_end;
     }
 
-    m_password = std::move(std::string(password_start, password_end));
+    m_password = std::string(password_start, password_end);
     return password_end;
   };
 
@@ -558,7 +558,7 @@ private:
       }
     }
 
-    m_host = std::move(std::string(host_start, host_end));
+    m_host = std::string(host_start, host_end);
     return host_end;
   };
 
@@ -592,14 +592,14 @@ private:
       // for the start of the fragment.
       ++query_end;
     }
-    m_query = std::move(std::string(query_start, query_end));
+    m_query = std::string(query_start, query_end);
     return query_end;
   };
 
   std::string::const_iterator parse_fragment(std::string const &uri_text,
                                              std::string::const_iterator fragment_start)
   {
-    m_fragment = std::move(std::string(fragment_start, uri_text.end()));
+    m_fragment = std::string(fragment_start, uri_text.end());
     return uri_text.end();
   };  
   
