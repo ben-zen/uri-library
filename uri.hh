@@ -44,7 +44,7 @@ public:
     Query,
     Fragment
   };
-  
+
   enum class query_argument_separator
   {
     ampersand,
@@ -62,7 +62,7 @@ public:
   };
 
   uri(std::string const &uri_text, scheme_category category = scheme_category::Hierarchical,
-      query_argument_separator separator = query_argument_separator::ampersand) : 
+      query_argument_separator separator = query_argument_separator::ampersand) :
     m_category(category),
     m_port(0),
     m_path_is_rooted(false),
@@ -159,8 +159,8 @@ public:
     if (components.count(component::Fragment))
     {
       m_fragment = components.at(component::Fragment);
-    } 
-  }    
+    }
+  }
 
   uri(uri const &other, std::map<component, std::string> const &replacements) :
     m_category(other.m_category),
@@ -170,28 +170,23 @@ public:
     m_scheme = (replacements.count(component::Scheme))
       ? replacements.at(component::Scheme) : other.m_scheme;
 
-    if (m_category == scheme_category::Hierarchical)
-    {
-      m_username = (replacements.count(component::Username))
-	? replacements.at(component::Username) : other.m_username;
+    m_username = (replacements.count(component::Username))
+      ? replacements.at(component::Username) : other.m_username;
 
-      m_password = (replacements.count(component::Password))
-	? replacements.at(component::Password) : other.m_password;
+    m_password = (replacements.count(component::Password))
+      ? replacements.at(component::Password) : other.m_password;
 
-      m_host = (replacements.count(component::Host))
-	? replacements.at(component::Host) : other.m_host;
+    m_host = (replacements.count(component::Host))
+      ? replacements.at(component::Host) : other.m_host;
 
-      m_port = (replacements.count(component::Port))
-	? std::stoul(replacements.at(component::Port)) : other.m_port;
+    m_port = (replacements.count(component::Port))
+      ? std::stoul(replacements.at(component::Port)) : other.m_port;
 
-      m_path = (replacements.count(component::Path))
-	? replacements.at(component::Path) : other.m_path;
-    }
-    else
-    {
-      m_content = (replacements.count(component::Content))
-	? replacements.at(component::Content) : other.m_content;
-    }
+    m_path = (replacements.count(component::Path))
+      ? replacements.at(component::Path) : other.m_path;
+
+    m_content = (replacements.count(component::Content))
+      ? replacements.at(component::Content) : other.m_content;
 
     m_query = (replacements.count(component::Query))
       ? replacements.at(component::Query) : other.m_query;
@@ -266,7 +261,7 @@ public:
     }
     return m_password;
   };
-  
+
   std::string const &get_host() const
   {
     if (m_category != scheme_category::Hierarchical)
@@ -315,7 +310,7 @@ public:
     full_uri.append(m_scheme);
     full_uri.append(":");
 
-    if (m_content.length() > m_path.length())
+    if (m_category == scheme_category::Hierarchical)
     {
       full_uri.append("//");
       if (!(m_username.empty() || m_password.empty()))
@@ -333,6 +328,10 @@ public:
         full_uri.append(":");
         full_uri.append(std::to_string(m_port));
       }
+    }
+    else
+    {
+      full_uri.append(m_content);
     }
 
     if (m_path_is_rooted)
@@ -355,7 +354,7 @@ public:
 
     return full_uri;
   };
-  
+
 private:
 
   void setup(std::string const &uri_text, scheme_category category)
@@ -367,7 +366,7 @@ private:
       throw std::invalid_argument("URIs cannot be of zero length.");
     }
 
-    std::string::const_iterator cursor = parse_scheme(uri_text, 
+    std::string::const_iterator cursor = parse_scheme(uri_text,
                                                       uri_text.begin());
     // After calling parse_scheme, *cursor == ':'; none of the following parsers
     // expect a separator character, so we advance the cursor upon calling them.
@@ -461,7 +460,7 @@ private:
 	  m_path_is_rooted = true;
 	  path_start = authority_cursor + 1;
 	}
-	
+
 	// If we've reached the end and no path is present then set path_start
         // to the end.
         if (authority_cursor == m_content.end()) {
@@ -601,8 +600,8 @@ private:
   {
     m_fragment = std::string(fragment_start, uri_text.end());
     return uri_text.end();
-  };  
-  
+  };
+
   void init_query_dictionary()
   {
     if (!m_query.empty())
@@ -634,7 +633,7 @@ private:
 		 : std::string::npos);
 	stanza_end = m_query.find_first_of(separator, carat);
       }
-      while ((stanza_end != std::string::npos) 
+      while ((stanza_end != std::string::npos)
 	     || (carat != std::string::npos));
     }
   }
