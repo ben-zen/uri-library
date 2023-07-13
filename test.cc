@@ -136,12 +136,21 @@ int main()
   test_call((query_dict["c"] == "1"), "Testing for a value in the query dictionary.");
   test_call((query_dict["d"] == "2"), "Testing for a value in the query dictionary.");
   
+  
   uri query_test_semicolon("http://a/b/?c=1;d=2", uri::scheme_category::Hierarchical, 
                            uri::query_argument_separator::semicolon);
   std::cout << "Checking the query map for a basic test URI that uses semicolons." << std::endl;
+  query_dict = query_test_semicolon.get_query_dictionary();
   test_call((query_dict["c"] == "1"), "Testing for a value in the query dictionary.");
   test_call((query_dict["d"] == "2"), "Testing for a value in the query dictionary.");
-
+  
+  
+  // Testing an percent encoded query value
+  uri query_percen_encoded("http://a/b/?q1=question-mark%3f&q2=ampersand%26");
+  std::cout << "Checking the query map for a basic test URI that uses semicolons." << std::endl;
+  query_dict = query_percen_encoded.get_query_dictionary();
+  test_call((query_dict["q1"] == "question-mark?"), "Testing for a value in the query dictionary1.");
+  test_call((query_dict["q2"] == "ampersand&"), "Testing for a value in the query dictionary2.");
   // Testing a non-hierarchical URI:
   uri data_uri("data:text/html,<!DOCTYPE html><html><head><title>test</title></head><body><h1>testing</h1><p>Test.</p></body></html>",
                uri::scheme_category::NonHierarchical);
