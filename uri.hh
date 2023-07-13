@@ -629,7 +629,7 @@ private:
 	  throw std::invalid_argument("Bad key in the query string!");
 	}
 
-	m_query_dict.emplace(key, value);
+	m_query_dict.emplace(key, decode_uri_component(value));
 	carat = ((stanza_end != std::string::npos) ? (stanza_end + 1)
 		 : std::string::npos);
 	stanza_end = m_query.find_first_of(separator, carat);
@@ -637,6 +637,38 @@ private:
       while ((stanza_end != std::string::npos) 
 	     || (carat != std::string::npos));
     }
+  }
+  
+  std::string decode_uri_component( std::string &encoded ) {
+    std::string decoded;
+    
+    if( encoded.size() < 3 )
+      return encoded;
+
+    size_t carat = 0;
+    size_t percent_pos = 0;
+    do {
+      percent_pos = encoded.find_first_of( '%', carat );
+      std::string pre_percent = encoded.substr( carat, ( ( percent_pos != std::string::npos ) ? ( percent_pos - carat ) : std::string::npos ) );
+      decoded.append( pre_percent );
+
+      if( percent_pos != std::string::npos ) {
+        if( percent_pos + 2 > encoded.size() ) {
+          throw std::invalid_argument( "Too few characters after ampersand! "
+                                       "Supplied URI component was: \"" +
+                                       encoded + "\"." );
+        }
+        
+        std::string hex_char_value = encoded.substr( percent_pos + 1, 2 );
+		std::string the_char = { (char) std::stoi( hex_char_value, nullptr, 16 ) };
+        decoded.append( the_char );
+
+        carat = percent_pos+3;
+	  }
+
+    } while( percent_pos != std::string::npos );
+
+    return decoded;
   }
 
   std::string m_scheme;
