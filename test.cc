@@ -15,6 +15,7 @@ void test_scheme()
 {
   std::string bad_scheme("http");
   std::string no_length_scheme(":abc");
+  std::string first_char_scheme("0http:");
   std::string only_scheme("http:");
 
   std::cout << "Testing the scheme parsing component." << std::endl << std::endl;
@@ -41,6 +42,27 @@ void test_scheme()
     std::cout << "Caught expected failure with a malformed scheme section (zero-length scheme):" 
 	      << std::endl
 	      << iae.what()
+	      << std::endl
+	      << std::endl;
+  }
+
+  bool catched{false};
+  try
+  {
+    uri test_uri(first_char_scheme);
+  }
+  catch (const std::invalid_argument& iae)
+  {
+    std::cout << "Caught expected failure with a malformed scheme section (first character is digit):"
+	      << std::endl
+	      << iae.what()
+	      << std::endl
+	      << std::endl;
+    catched = true;
+  }
+  if (!catched)
+  {
+    std::cout << "\033[38;5;203mFAILED: Does not caught expected failure with a malformed scheme section (first character is digit):\033[0m"
 	      << std::endl
 	      << std::endl;
   }
