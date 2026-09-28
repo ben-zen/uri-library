@@ -437,7 +437,13 @@ private:
       {
 	// In this case an authority component is present.
 	std::string::const_iterator authority_cursor = (m_content.begin() + 2);
-	if (m_content.find_first_of('@') != std::string::npos)
+    size_t authority_end = m_content.find('/', 2);
+    if (authority_end == std::string::npos)
+    {
+        authority_end = m_content.length();
+    }
+    size_t at_pos = m_content.find('@', 2);
+	if ((at_pos != std::string::npos) && (at_pos < authority_end))
 	{
 	  std::string::const_iterator userpass_divider = parse_username(uri_text,
 									m_content,
